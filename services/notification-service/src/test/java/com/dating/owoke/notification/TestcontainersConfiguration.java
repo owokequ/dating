@@ -31,7 +31,7 @@ class TestcontainersConfiguration {
     @ServiceConnection(name = "redis")
     GenericContainer<?> redisContainer() {
         return new GenericContainer<>(REDIS_IMAGE)
-                .withCommand("redis-server", "--appendonly", "yes", "--requirepass", "dating-redis")
+                .withCommand("redis-server", "--appendonly", "yes")
                 .withExposedPorts(6379);
     }
 }

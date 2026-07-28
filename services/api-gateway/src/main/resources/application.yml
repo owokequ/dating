@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:dating-redis}
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: identity-service
+              uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/users/**,/.well-known/jwks.json
+            - id: dating-service
+              uri: ${DATING_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/couples/**,/api/v1/couple-invitations/**,/api/v1/date-proposals/**
+            - id: notification-service
+              uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/notifications/**,/api/v1/webhooks/telegram/**
+            - id: places-service
+              uri: ${PLACES_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/places/**,/api/v1/admin/places/**
+
+server:
+  port: ${API_GATEWAY_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true

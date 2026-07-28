@@ -1,43 +1,75 @@
 name: dating-local
 
 services:
-  core-postgres:
+  identity-postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: dating_core
-      POSTGRES_USER: dating_core
-      POSTGRES_PASSWORD: dating_core
+      POSTGRES_DB: owoke_identity
+      POSTGRES_USER: owoke_identity
+      POSTGRES_PASSWORD: owoke_identity
     ports:
-      - "5432:5432"
+      - "127.0.0.1:15432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dating_core -d dating_core"]
+      test: ["CMD-SHELL", "pg_isready -U owoke_identity -d owoke_identity"]
       interval: 5s
       timeout: 3s
       retries: 10
     volumes:
-      - core-postgres-data:/var/lib/postgresql/data
+      - identity-postgres-data:/var/lib/postgresql/data
+
+  dating-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: owoke_dating
+      POSTGRES_USER: owoke_dating
+      POSTGRES_PASSWORD: owoke_dating
+    ports:
+      - "127.0.0.1:15433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U owoke_dating -d owoke_dating"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - dating-postgres-data:/var/lib/postgresql/data
 
   notification-postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: dating_notification
-      POSTGRES_USER: dating_notification
-      POSTGRES_PASSWORD: dating_notification
+      POSTGRES_DB: owoke_notification
+      POSTGRES_USER: owoke_notification
+      POSTGRES_PASSWORD: owoke_notification
     ports:
-      - "5433:5432"
+      - "127.0.0.1:15434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dating_notification -d dating_notification"]
+      test: ["CMD-SHELL", "pg_isready -U owoke_notification -d owoke_notification"]
       interval: 5s
       timeout: 3s
       retries: 10
     volumes:
       - notification-postgres-data:/var/lib/postgresql/data
 
+  places-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: owoke_places
+      POSTGRES_USER: owoke_places
+      POSTGRES_PASSWORD: owoke_places
+    ports:
+      - "127.0.0.1:15435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U owoke_places -d owoke_places"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - places-postgres-data:/var/lib/postgresql/data
+
   redis:
     image: redis:8.2.1
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "dating-redis"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "dating-redis", "ping"]
       interval: 5s
@@ -49,7 +81,7 @@ services:
   kafka:
     image: apache/kafka-native:4.1.0
     ports:
-      - "9092:9092"
+      - "127.0.0.1:9092:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -72,8 +104,21 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
 
+  mailpit:
+    image: axllent/mailpit:v1.30.5
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpit-data:/data
+
 volumes:
-  core-postgres-data:
+  identity-postgres-data:
+  dating-postgres-data:
   notification-postgres-data:
+  places-postgres-data:
   redis-data:
   kafka-data:
+  mailpit-data:

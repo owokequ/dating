@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: dating-service
+  datasource:
+    url: ${DATING_DB_URL:jdbc:postgresql://localhost:15433/owoke_dating}
+    username: ${DATING_DB_USERNAME:owoke_dating}
+    password: ${DATING_DB_PASSWORD:owoke_dating}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+server:
+  port: ${DATING_SERVICE_PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true

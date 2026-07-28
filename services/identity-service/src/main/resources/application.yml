@@ -1,16 +1,15 @@
 spring:
   application:
-    name: notification-service
+    name: identity-service
   datasource:
-    url: ${NOTIFICATION_DB_URL:jdbc:postgresql://localhost:15434/owoke_notification}
-    username: ${NOTIFICATION_DB_USERNAME:owoke_notification}
-    password: ${NOTIFICATION_DB_PASSWORD:owoke_notification}
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:15432/owoke_identity}
+    username: ${IDENTITY_DB_USERNAME:owoke_identity}
+    password: ${IDENTITY_DB_PASSWORD:owoke_identity}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:dating-redis}
-      database: ${NOTIFICATION_REDIS_DATABASE:1}
       repositories:
         enabled: false
   jpa:
@@ -19,26 +18,18 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    consumer:
-      group-id: notification-service-v1
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 server:
-  port: ${NOTIFICATION_SERVICE_PORT:8083}
+  port: ${IDENTITY_SERVICE_PORT:8081}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
-      show-details: when_authorized
-  health:
-    livenessstate:
-      enabled: true
-    readinessstate:
-      enabled: true
