@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: core-service
+  datasource:
+    url: ${CORE_DB_URL:jdbc:postgresql://localhost:5432/dating_core}
+    username: ${CORE_DB_USERNAME:dating_core}
+    password: ${CORE_DB_PASSWORD:dating_core}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:dating-redis}
+      database: ${CORE_REDIS_DATABASE:0}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  session:
+    redis:
+      namespace: dating:core:session
+
+server:
+  port: ${CORE_SERVICE_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
