@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/notification-commands-v1.schema.json",
+  "title": "Notification commands V1 payloads",
+  "oneOf": [
+    {
+      "title": "EmailVerificationRequestedV1 or PasswordResetRequestedV1",
+      "type": "object",
+      "required": ["userId", "email", "template", "actionUrl"],
+      "properties": {
+        "userId": {"type": "string", "format": "uuid"},
+        "email": {"type": "string", "format": "email"},
+        "template": {"enum": ["EMAIL_VERIFICATION", "PASSWORD_RESET"]},
+        "actionUrl": {"type": "string", "format": "uri", "maxLength": 1000}
+      }
+    }
+  ]
+}

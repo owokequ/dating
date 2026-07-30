@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/identity-commands-v1.schema.json",
+  "title": "Identity commands V1 payloads",
+  "oneOf": [
+    {
+      "title": "TelegramLinkRequestedV1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["linkToken", "telegramUserId", "telegramChatId"],
+      "properties": {
+        "linkToken": {"type": "string", "minLength": 20, "maxLength": 256},
+        "telegramUserId": {"type": "integer", "minimum": 1},
+        "telegramChatId": {"type": "integer"},
+        "username": {"type": ["string", "null"], "maxLength": 64}
+      }
+    }
+  ]
+}

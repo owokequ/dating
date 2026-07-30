@@ -26,7 +26,7 @@ public class ExternalIdentity {
     @Column(nullable = false, updatable = false, length = 32)
     private ExternalProvider provider;
 
-    @Column(nullable = false, updatable = false, length = 128)
+    @Column(nullable = false, length = 128)
     private String subject;
 
     @Column(name = "telegram_user_id")
@@ -76,6 +76,17 @@ public class ExternalIdentity {
         this.username = normalizeOptional(username, 64);
         this.botAccess = this.botAccess || botAccess;
         this.lastAuthenticatedAt = Objects.requireNonNull(now, "now must not be null");
+    }
+
+    public void recordOidcLogin(String subject, String username, boolean botAccess, Instant now) {
+        String normalizedSubject = requireText(subject, "subject", 128);
+        if (!this.subject.equals(normalizedSubject)) {
+            if (!this.subject.startsWith("bot:")) {
+                throw new IllegalStateException("Telegram OIDC subject does not match linked identity");
+            }
+            this.subject = normalizedSubject;
+        }
+        recordLogin(username, botAccess, now);
     }
 
     public UUID getUserId() {

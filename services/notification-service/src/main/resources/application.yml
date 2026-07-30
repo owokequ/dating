@@ -21,11 +21,40 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: notification-service-v1
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    listener:
+      ack-mode: record
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 server:
   port: ${NOTIFICATION_SERVICE_PORT:8083}
+
+owoke:
+  security:
+    issuer: ${OWOKE_JWT_ISSUER:http://localhost:8081}
+    audience: ${OWOKE_JWT_AUDIENCE:owoke-api}
+    jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8081/.well-known/jwks.json}
+  notification:
+    web-app-url: ${WEB_APP_URL:http://localhost:5173}
+    from-email: ${NOTIFICATION_FROM_EMAIL:noreply@owoke.local}
+    delivery-fixed-delay: ${NOTIFICATION_DELIVERY_FIXED_DELAY:1000}
+  telegram:
+    enabled: ${TELEGRAM_BOT_ENABLED:false}
+    mode: ${TELEGRAM_BOT_MODE:webhook}
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
 
 management:
   endpoints:
@@ -38,6 +67,8 @@ management:
         enabled: true
       show-details: when_authorized
   health:
+    mail:
+      enabled: ${MAIL_HEALTH_ENABLED:false}
     livenessstate:
       enabled: true
     readinessstate:

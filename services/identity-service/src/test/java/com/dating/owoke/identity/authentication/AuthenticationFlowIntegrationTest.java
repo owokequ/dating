@@ -6,6 +6,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.net.URI;
+import java.time.Instant;
+import java.util.Map;
+import java.util.UUID;
 
 import javax.sql.DataSource;
 
@@ -25,9 +28,19 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import jakarta.servlet.http.Cookie;
+import com.dating.owoke.identity.shared.messaging.inbox.service.IdentityCommandProcessor;
+import com.dating.owoke.identity.telegram.dto.TelegramLinkResponse;
+import com.dating.owoke.identity.telegram.service.TelegramLinkService;
 
-@SpringBootTest(properties = "owoke.outbox.enabled=false")
+import jakarta.servlet.http.Cookie;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+
+@SpringBootTest(properties = {
+        "owoke.outbox.enabled=false",
+        "owoke.messaging.consumers-enabled=false",
+        "owoke.telegram.oidc.bot-username=owoke_test_bot"
+})
 @AutoConfigureMockMvc
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -59,16 +72,27 @@ class AuthenticationFlowIntegrationTest {
 
     private final MockMvc mockMvc;
     private final JdbcTemplate jdbcTemplate;
+    private final TelegramLinkService telegramLinkService;
+    private final IdentityCommandProcessor commandProcessor;
+    private final ObjectMapper objectMapper;
 
     @Autowired
-    AuthenticationFlowIntegrationTest(MockMvc mockMvc, DataSource dataSource) {
+    AuthenticationFlowIntegrationTest(
+            MockMvc mockMvc,
+            DataSource dataSource,
+            TelegramLinkService telegramLinkService,
+            IdentityCommandProcessor commandProcessor,
+            ObjectMapper objectMapper) {
         this.mockMvc = mockMvc;
         this.jdbcTemplate = new JdbcTemplate(dataSource);
+        this.telegramLinkService = telegramLinkService;
+        this.commandProcessor = commandProcessor;
+        this.objectMapper = objectMapper;
     }
 
     @AfterEach
     void cleanDatabase() {
-        jdbcTemplate.execute("TRUNCATE TABLE outbox_events, account_tokens, external_identities, "
+        jdbcTemplate.execute("TRUNCATE TABLE failed_messages, inbox_events, outbox_events, account_tokens, external_identities, "
                 + "password_credentials, users CASCADE");
     }
 
@@ -135,6 +159,35 @@ class AuthenticationFlowIntegrationTest {
         assertThat(after).isEqualTo(before);
     }
 
+    @Test
+    void telegramBotLinkCommandIsOneTimeAndIdempotent() throws Exception {
+        register("link@example.com", "Link User");
+        UUID userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'link@example.com'", UUID.class);
+        TelegramLinkResponse link = telegramLinkService.create(userId);
+        String rawToken = link.url().substring(link.url().indexOf("link_") + "link_".length());
+        UUID eventId = UUID.randomUUID();
+        String command = eventEnvelope(eventId, Map.of(
+                "linkToken", rawToken,
+                "telegramUserId", 123456789L,
+                "telegramChatId", 123456789L,
+                "username", "link_user"));
+
+        commandProcessor.process("identity.commands.v1", command);
+        commandProcessor.process("identity.commands.v1", command);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM external_identities", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM inbox_events", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM outbox_events WHERE event_type = 'UserTelegramLinkedV1'
+                """, Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT used_at IS NOT NULL FROM account_tokens WHERE type = 'TELEGRAM_LINK'
+                """, Boolean.class)).isTrue();
+    }
+
     private void register(String email, String displayName) throws Exception {
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType("application/json")
@@ -142,6 +195,21 @@ class AuthenticationFlowIntegrationTest {
                                 {"email":"%s","displayName":"%s","password":"%s"}
                                 """.formatted(email, displayName, PASSWORD)))
                 .andExpect(status().isAccepted());
+    }
+
+    private String eventEnvelope(UUID eventId, Object payload) {
+        try {
+            return objectMapper.writeValueAsString(Map.of(
+                    "eventId", eventId,
+                    "eventType", "TelegramLinkRequestedV1",
+                    "eventVersion", 1,
+                    "aggregateId", "123456789",
+                    "occurredAt", Instant.now(),
+                    "correlationId", UUID.randomUUID(),
+                    "payload", payload));
+        } catch (JacksonException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private static String loginJson(String email) {

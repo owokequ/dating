@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/dating-events-v1.schema.json",
+  "title": "Dating events V1 payloads",
+  "$defs": {
+    "proposal": {
+      "type": "object",
+      "required": ["proposalId", "coupleId", "proposerId", "responderId", "scheduledAt", "timezone", "placeName", "placeAddress"],
+      "properties": {
+        "proposalId": {"type": "string", "format": "uuid"},
+        "coupleId": {"type": "string", "format": "uuid"},
+        "proposerId": {"type": "string", "format": "uuid"},
+        "responderId": {"type": "string", "format": "uuid"},
+        "scheduledAt": {"type": "string", "format": "date-time"},
+        "timezone": {"const": "Europe/Moscow"},
+        "placeName": {"type": "string", "minLength": 1, "maxLength": 200},
+        "placeAddress": {"type": "string", "minLength": 1, "maxLength": 500},
+        "description": {"type": ["string", "null"], "maxLength": 1000}
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "title": "DateProposalCreatedV1",
+      "allOf": [
+        {"$ref": "#/$defs/proposal"},
+        {"type": "object", "required": ["placeId"], "properties": {"placeId": {"type": "string", "format": "uuid"}}}
+      ]
+    },
+    {
+      "title": "DateProposalStatusChangedV1",
+      "allOf": [
+        {"$ref": "#/$defs/proposal"},
+        {
+          "type": "object",
+          "required": ["status", "changedBy", "changedAt"],
+          "properties": {
+            "status": {"enum": ["ACCEPTED", "DECLINED", "CANCELLED", "COMPLETED"]},
+            "changedBy": {"type": "string", "format": "uuid"},
+            "changedAt": {"type": "string", "format": "date-time"}
+          }
+        }
+      ]
+    }
+  ]
+}

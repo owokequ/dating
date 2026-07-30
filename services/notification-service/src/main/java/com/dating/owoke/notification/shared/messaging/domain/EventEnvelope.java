@@ -1,0 +1,16 @@
+package com.dating.owoke.notification.shared.messaging.domain;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import tools.jackson.databind.JsonNode;
+
+public record EventEnvelope(
+        UUID eventId,
+        String eventType,
+        int eventVersion,
+        String aggregateId,
+        Instant occurredAt,
+        UUID correlationId,
+        JsonNode payload) {
+}

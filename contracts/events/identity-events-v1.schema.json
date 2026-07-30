@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/identity-events-v1.schema.json",
+  "title": "Identity events V1 payloads",
+  "oneOf": [
+    {
+      "title": "UserRegisteredV1",
+      "type": "object",
+      "required": ["userId", "displayName"],
+      "properties": {
+        "userId": {"type": "string", "format": "uuid"},
+        "displayName": {"type": "string", "minLength": 1, "maxLength": 120},
+        "email": {"type": ["string", "null"], "format": "email"}
+      }
+    },
+    {
+      "title": "UserProfileUpdatedV1",
+      "type": "object",
+      "required": ["userId", "displayName"],
+      "properties": {
+        "userId": {"type": "string", "format": "uuid"},
+        "displayName": {"type": "string", "minLength": 1, "maxLength": 120}
+      }
+    },
+    {
+      "title": "UserTelegramLinkedV1",
+      "type": "object",
+      "required": ["userId", "telegramUserId", "botAccess"],
+      "properties": {
+        "userId": {"type": "string", "format": "uuid"},
+        "telegramUserId": {"type": "integer", "minimum": 1},
+        "username": {"type": ["string", "null"], "maxLength": 64},
+        "botAccess": {"type": "boolean"}
+      }
+    }
+  ]
+}

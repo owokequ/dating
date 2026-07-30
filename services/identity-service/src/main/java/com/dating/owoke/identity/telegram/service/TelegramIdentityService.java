@@ -49,25 +49,31 @@ public class TelegramIdentityService {
 
         UserAccount account;
         if (identity == null) {
-            if (identityRepository.findByTelegramUserId(profile.telegramUserId()).isPresent()) {
-                throw new AuthenticationRejectedException("Telegram identity is already linked");
+            identity = identityRepository.findByTelegramUserId(profile.telegramUserId()).orElse(null);
+            if (identity != null) {
+                identity.recordOidcLogin(
+                        profile.subject(), profile.username(), profile.botAccess(), clock.instant());
+                account = userRepository.findById(identity.getUserId())
+                        .orElseThrow(() -> new IllegalStateException("External identity has no user"));
+            } else {
+                account = userRepository.save(UserAccount.registerExternal(profile.displayName(), clock.instant()));
+                identity = identityRepository.save(new ExternalIdentity(
+                        account.getId(),
+                        profile.subject(),
+                        profile.telegramUserId(),
+                        profile.username(),
+                        profile.botAccess(),
+                        clock.instant()));
+                outboxService.enqueue(
+                        IDENTITY_EVENTS_TOPIC,
+                        account.getId().toString(),
+                        "UserRegisteredV1",
+                        new UserRegisteredV1(account.getId(), account.getDisplayName(), null));
+                publishLinked(account, identity);
             }
-            account = userRepository.save(UserAccount.registerExternal(profile.displayName(), clock.instant()));
-            identity = identityRepository.save(new ExternalIdentity(
-                    account.getId(),
-                    profile.subject(),
-                    profile.telegramUserId(),
-                    profile.username(),
-                    profile.botAccess(),
-                    clock.instant()));
-            outboxService.enqueue(
-                    IDENTITY_EVENTS_TOPIC,
-                    account.getId().toString(),
-                    "UserRegisteredV1",
-                    new UserRegisteredV1(account.getId(), account.getDisplayName(), null));
-            publishLinked(account, identity);
         } else {
-            identity.recordLogin(profile.username(), profile.botAccess(), clock.instant());
+            identity.recordOidcLogin(
+                    profile.subject(), profile.username(), profile.botAccess(), clock.instant());
             account = userRepository.findById(identity.getUserId())
                     .orElseThrow(() -> new IllegalStateException("External identity has no user"));
         }
