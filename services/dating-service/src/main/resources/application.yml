@@ -11,11 +11,21 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 server:
   port: ${DATING_SERVICE_PORT:8082}
+
+owoke:
+  security:
+    issuer: ${OWOKE_JWT_ISSUER:http://localhost:8081}
+    audience: ${OWOKE_JWT_AUDIENCE:owoke-api}
+    jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8081/.well-known/jwks.json}
+  web-app-url: ${WEB_APP_URL:http://localhost:5173}
 
 management:
   endpoints:
