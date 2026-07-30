@@ -1,0 +1,243 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-identity-schema
+      author: codex
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints: { primaryKey: true, nullable: false }
+              - column:
+                  name: email
+                  type: varchar(320)
+              - column:
+                  name: display_name
+                  type: varchar(100)
+                  constraints: { nullable: false }
+              - column:
+                  name: status
+                  type: varchar(32)
+                  constraints: { nullable: false }
+              - column:
+                  name: role
+                  type: varchar(32)
+                  constraints: { nullable: false }
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints: { nullable: false }
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  constraints: { nullable: false }
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+                  constraints: { nullable: false }
+        - createTable:
+            tableName: password_credentials
+            columns:
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: { primaryKey: true, nullable: false }
+              - column:
+                  name: password_hash
+                  type: varchar(100)
+                  constraints: { nullable: false }
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  constraints: { nullable: false }
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+                  constraints: { nullable: false }
+        - addForeignKeyConstraint:
+            baseTableName: password_credentials
+            baseColumnNames: user_id
+            constraintName: fk_password_credentials_user
+            referencedTableName: users
+            referencedColumnNames: id
+            onDelete: CASCADE
+        - createTable:
+            tableName: external_identities
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints: { primaryKey: true, nullable: false }
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: { nullable: false }
+              - column:
+                  name: provider
+                  type: varchar(32)
+                  constraints: { nullable: false }
+              - column:
+                  name: subject
+                  type: varchar(128)
+                  constraints: { nullable: false }
+              - column:
+                  name: telegram_user_id
+                  type: bigint
+              - column:
+                  name: username
+                  type: varchar(64)
+              - column:
+                  name: bot_access
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints: { nullable: false }
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints: { nullable: false }
+              - column:
+                  name: last_authenticated_at
+                  type: timestamp with time zone
+                  constraints: { nullable: false }
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+                  constraints: { nullable: false }
+        - addForeignKeyConstraint:
+            baseTableName: external_identities
+            baseColumnNames: user_id
+            constraintName: fk_external_identities_user
+            referencedTableName: users
+            referencedColumnNames: id
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: external_identities
+            columnNames: provider, subject
+            constraintName: uq_external_identities_provider_subject
+        - createTable:
+            tableName: account_tokens
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints: { primaryKey: true, nullable: false }
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints: { nullable: false }
+              - column:
+                  name: type
+                  type: varchar(32)
+                  constraints: { nullable: false }
+              - column:
+                  name: token_hash
+                  type: varchar(64)
+                  constraints: { nullable: false, unique: true }
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  constraints: { nullable: false }
+              - column:
+                  name: expires_at
+                  type: timestamp with time zone
+                  constraints: { nullable: false }
+              - column:
+                  name: used_at
+                  type: timestamp with time zone
+        - addForeignKeyConstraint:
+            baseTableName: account_tokens
+            baseColumnNames: user_id
+            constraintName: fk_account_tokens_user
+            referencedTableName: users
+            referencedColumnNames: id
+            onDelete: CASCADE
+        - createIndex:
+            tableName: account_tokens
+            indexName: idx_account_tokens_user_type
+            columns:
+              - column: { name: user_id }
+              - column: { name: type }
+        - createTable:
+            tableName: outbox_events
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints: { primaryKey: true, nullable: false }
+              - column:
+                  name: topic
+                  type: varchar(128)
+                  constraints: { nullable: false }
+              - column:
+                  name: event_key
+                  type: varchar(128)
+                  constraints: { nullable: false }
+              - column:
+                  name: event_type
+                  type: varchar(128)
+                  constraints: { nullable: false }
+              - column:
+                  name: payload
+                  type: jsonb
+                  constraints: { nullable: false }
+              - column:
+                  name: occurred_at
+                  type: timestamp with time zone
+                  constraints: { nullable: false }
+              - column:
+                  name: published_at
+                  type: timestamp with time zone
+              - column:
+                  name: attempts
+                  type: integer
+                  defaultValueNumeric: 0
+                  constraints: { nullable: false }
+              - column:
+                  name: next_attempt_at
+                  type: timestamp with time zone
+                  constraints: { nullable: false }
+              - column:
+                  name: last_error
+                  type: varchar(1000)
+        - createIndex:
+            tableName: outbox_events
+            indexName: idx_outbox_events_pending
+            columns:
+              - column: { name: next_attempt_at }
+              - column: { name: occurred_at }
+        - sql:
+            dbms: postgresql
+            sql: >-
+              CREATE UNIQUE INDEX uq_users_normalized_email ON users (lower(email))
+              WHERE email IS NOT NULL;
+        - sql:
+            dbms: postgresql
+            sql: >-
+              CREATE UNIQUE INDEX uq_external_identities_telegram_user
+              ON external_identities (telegram_user_id)
+              WHERE telegram_user_id IS NOT NULL;
+        - sql:
+            dbms: postgresql
+            sql: >-
+              ALTER TABLE users ADD CONSTRAINT chk_users_status
+              CHECK (status IN ('PENDING_VERIFICATION', 'ACTIVE', 'DISABLED'));
+        - sql:
+            dbms: postgresql
+            sql: >-
+              ALTER TABLE users ADD CONSTRAINT chk_users_role
+              CHECK (role IN ('USER', 'ADMIN'));
+        - sql:
+            dbms: postgresql
+            sql: >-
+              ALTER TABLE users ADD CONSTRAINT chk_users_display_name
+              CHECK (char_length(trim(display_name)) BETWEEN 1 AND 100);
+        - sql:
+            dbms: postgresql
+            sql: >-
+              ALTER TABLE account_tokens ADD CONSTRAINT chk_account_tokens_type
+              CHECK (type IN ('EMAIL_VERIFICATION', 'PASSWORD_RESET', 'TELEGRAM_LINK'));

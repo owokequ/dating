@@ -28,8 +28,24 @@ spring:
               predicates:
                 - Path=/api/v1/places/**,/api/v1/admin/places/**
 
+owoke:
+  gateway:
+    security:
+      issuer: ${OWOKE_JWT_ISSUER:http://localhost:8081}
+      audience: ${OWOKE_JWT_AUDIENCE:owoke-api}
+      jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8081/.well-known/jwks.json}
+      web-app-origin: ${WEB_APP_ORIGIN:http://localhost:5173}
+      cookie-secure: ${COOKIE_SECURE:false}
+    rate-limit:
+      window: 1m
+      login-attempts: 10
+      registration-attempts: 5
+      password-reset-attempts: 5
+      refresh-attempts: 60
+
 server:
   port: ${API_GATEWAY_PORT:8080}
+  forward-headers-strategy: framework
 
 management:
   endpoints:

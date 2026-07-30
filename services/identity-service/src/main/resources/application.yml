@@ -18,11 +18,37 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 server:
   port: ${IDENTITY_SERVICE_PORT:8081}
+
+owoke:
+  security:
+    issuer: ${OWOKE_JWT_ISSUER:http://localhost:8081}
+    audience: ${OWOKE_JWT_AUDIENCE:owoke-api}
+    key-id: ${OWOKE_JWT_KEY_ID:owoke-local-1}
+    private-key-base64: ${OWOKE_JWT_PRIVATE_KEY_BASE64:}
+    public-key-base64: ${OWOKE_JWT_PUBLIC_KEY_BASE64:}
+    access-token-ttl: ${OWOKE_ACCESS_TOKEN_TTL:15m}
+    refresh-token-ttl: ${OWOKE_REFRESH_TOKEN_TTL:30d}
+    cookie-secure: ${COOKIE_SECURE:false}
+    web-app-url: ${WEB_APP_URL:http://localhost:5173}
+  telegram:
+    oidc:
+      client-id: ${TELEGRAM_OIDC_CLIENT_ID:}
+      client-secret: ${TELEGRAM_OIDC_CLIENT_SECRET:}
+      bot-username: ${TELEGRAM_BOT_USERNAME:}
+      redirect-uri: ${TELEGRAM_OIDC_REDIRECT_URI:http://localhost:8080/api/v1/auth/telegram/callback}
+      authorization-uri: https://oauth.telegram.org/auth
+      token-uri: https://oauth.telegram.org/token
+      jwk-set-uri: https://oauth.telegram.org/.well-known/jwks.json
+      issuer: https://oauth.telegram.org
+      state-ttl: 10m
 
 management:
   endpoints:
