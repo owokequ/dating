@@ -10,6 +10,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.dating.owoke.dating.dateproposal.exception.InvalidDateProposalActionException;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
@@ -27,11 +29,13 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler({
             BusinessConflictException.class,
+            InvalidDateProposalActionException.class,
             DataIntegrityViolationException.class,
             ObjectOptimisticLockingFailureException.class
     })
     ProblemDetail conflict(Exception exception, HttpServletRequest request) {
         String detail = exception instanceof BusinessConflictException
+                        || exception instanceof InvalidDateProposalActionException
                 ? exception.getMessage()
                 : "The request conflicts with the current resource state";
         return problem(HttpStatus.CONFLICT, detail, request);

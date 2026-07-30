@@ -1,0 +1,87 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-date-proposal-schema
+      author: codex
+      changes:
+        - createTable:
+            tableName: place_projections
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: name, type: varchar(200), constraints: { nullable: false } }
+              - column: { name: address, type: varchar(500), constraints: { nullable: false } }
+              - column: { name: status, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+        - createTable:
+            tableName: date_proposals
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: couple_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: proposer_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: responder_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: scheduled_at, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: timezone, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: place_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: place_name_snapshot, type: varchar(200), constraints: { nullable: false } }
+              - column: { name: place_address_snapshot, type: varchar(500), constraints: { nullable: false } }
+              - column: { name: description, type: varchar(1000) }
+              - column: { name: status, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: decided_at, type: timestamp with time zone }
+              - column: { name: cancelled_at, type: timestamp with time zone }
+              - column: { name: completed_at, type: timestamp with time zone }
+              - column: { name: version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: date_proposals
+            baseColumnNames: couple_id
+            constraintName: fk_date_proposals_couple
+            referencedTableName: couples
+            referencedColumnNames: id
+            onDelete: RESTRICT
+        - addForeignKeyConstraint:
+            baseTableName: date_proposals
+            baseColumnNames: place_id
+            constraintName: fk_date_proposals_place_projection
+            referencedTableName: place_projections
+            referencedColumnNames: id
+            onDelete: RESTRICT
+        - createIndex:
+            tableName: date_proposals
+            indexName: idx_date_proposals_couple_scheduled
+            columns:
+              - column: { name: couple_id }
+              - column: { name: scheduled_at, descending: true }
+        - createTable:
+            tableName: idempotency_records
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: user_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: operation, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: idempotency_key, type: varchar(128), constraints: { nullable: false } }
+              - column: { name: request_hash, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: resource_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp with time zone, constraints: { nullable: false } }
+        - addUniqueConstraint:
+            tableName: idempotency_records
+            columnNames: user_id, operation, idempotency_key
+            constraintName: uq_idempotency_user_operation_key
+        - sql:
+            dbms: postgresql
+            sql: >-
+              ALTER TABLE place_projections ADD CONSTRAINT chk_place_projections_status
+              CHECK (status IN ('ACTIVE', 'ARCHIVED'));
+        - sql:
+            dbms: postgresql
+            sql: >-
+              ALTER TABLE date_proposals ADD CONSTRAINT chk_date_proposals_status
+              CHECK (status IN ('PENDING_CONFIRMATION', 'ACCEPTED', 'DECLINED', 'CANCELLED', 'COMPLETED'));
+        - sql:
+            dbms: postgresql
+            sql: >-
+              ALTER TABLE date_proposals ADD CONSTRAINT chk_date_proposals_distinct_users
+              CHECK (proposer_id <> responder_id);
+        - sql:
+            dbms: postgresql
+            sql: >-
+              ALTER TABLE date_proposals ADD CONSTRAINT chk_date_proposals_description
+              CHECK (description IS NULL OR char_length(description) <= 1000);

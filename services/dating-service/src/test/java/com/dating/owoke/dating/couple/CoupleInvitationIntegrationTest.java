@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -32,6 +33,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.dating.owoke.dating.couple.dto.InvitationCreationResponse;
+import com.dating.owoke.dating.dateproposal.dto.DateProposalResponse;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -67,7 +69,8 @@ class CoupleInvitationIntegrationTest {
 
     @AfterEach
     void cleanDatabase() {
-        jdbcTemplate.execute("TRUNCATE TABLE outbox_events, couple_invitations, couple_members, couples CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE idempotency_records, date_proposals, place_projections, "
+                + "outbox_events, couple_invitations, couple_members, couples CASCADE");
     }
 
     @Test
@@ -159,6 +162,74 @@ class CoupleInvitationIntegrationTest {
                 .isEqualTo(1);
     }
 
+    @Test
+    void dateProposalUsesPlaceSnapshotAndIdempotentStatusChanges() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID partnerId = UUID.randomUUID();
+        activateCouple(ownerId, partnerId);
+        UUID placeId = UUID.randomUUID();
+        insertPlace(placeId, "Original cafe", "Kazan, Original street 1", "ACTIVE");
+
+        DateProposalResponse proposal = createProposal(
+                ownerId, placeId, "create-proposal-1", Instant.now().plusSeconds(86_400), "Dinner");
+        assertThat(proposal.status().name()).isEqualTo("PENDING_CONFIRMATION");
+
+        mockMvc.perform(post("/api/v1/date-proposals/{id}/accept", proposal.id())
+                        .header("Idempotency-Key", "owner-cannot-accept")
+                        .with(user(ownerId)))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(post("/api/v1/date-proposals/{id}/accept", proposal.id())
+                        .header("Idempotency-Key", "accept-proposal-1")
+                        .with(user(partnerId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+        mockMvc.perform(post("/api/v1/date-proposals/{id}/accept", proposal.id())
+                        .header("Idempotency-Key", "accept-proposal-1")
+                        .with(user(partnerId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+
+        jdbcTemplate.update(
+                "UPDATE place_projections SET name = ?, address = ?, version = version + 1 WHERE id = ?",
+                "Renamed cafe", "Kazan, New street 2", placeId);
+        mockMvc.perform(get("/api/v1/date-proposals/{id}", proposal.id()).with(user(ownerId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.placeName").value("Original cafe"))
+                .andExpect(jsonPath("$.placeAddress").value("Kazan, Original street 1"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV1'", Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void archivedPlaceAndPastDateCannotCreateProposal() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID partnerId = UUID.randomUUID();
+        activateCouple(ownerId, partnerId);
+        UUID placeId = UUID.randomUUID();
+        insertPlace(placeId, "Closed cafe", "Kazan", "ARCHIVED");
+
+        mockMvc.perform(post("/api/v1/date-proposals")
+                        .header("Idempotency-Key", "archived-place")
+                        .with(user(ownerId))
+                        .contentType("application/json")
+                        .content("""
+                                {"scheduledAt":"%s","placeId":"%s"}
+                                """.formatted(Instant.now().plusSeconds(3600), placeId)))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(post("/api/v1/date-proposals")
+                        .header("Idempotency-Key", "past-date")
+                        .with(user(ownerId))
+                        .contentType("application/json")
+                        .content("""
+                                {"scheduledAt":"%s","placeId":"%s"}
+                                """.formatted(Instant.now().minusSeconds(60), placeId)))
+                .andExpect(status().isBadRequest());
+    }
+
     private int acceptAfter(CountDownLatch start, String token, UUID userId) throws Exception {
         start.await();
         return mockMvc.perform(post("/api/v1/couple-invitations/{token}/accept", token)
@@ -182,6 +253,39 @@ class CoupleInvitationIntegrationTest {
                 .andReturn();
         return objectMapper.readValue(
                 result.getResponse().getContentAsString(), InvitationCreationResponse.class);
+    }
+
+    private void activateCouple(UUID ownerId, UUID partnerId) throws Exception {
+        InvitationCreationResponse invitation = createInvitation(ownerId);
+        mockMvc.perform(post("/api/v1/couple-invitations/{token}/accept", token(invitation))
+                        .with(user(partnerId)))
+                .andExpect(status().isOk());
+    }
+
+    private void insertPlace(UUID placeId, String name, String address, String status) {
+        jdbcTemplate.update("""
+                INSERT INTO place_projections (id, name, address, status, updated_at, version)
+                VALUES (?, ?, ?, ?, now(), 0)
+                """, placeId, name, address, status);
+    }
+
+    private DateProposalResponse createProposal(
+            UUID userId,
+            UUID placeId,
+            String idempotencyKey,
+            Instant scheduledAt,
+            String description
+    ) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/date-proposals")
+                        .header("Idempotency-Key", idempotencyKey)
+                        .with(user(userId))
+                        .contentType("application/json")
+                        .content("""
+                                {"scheduledAt":"%s","placeId":"%s","description":"%s"}
+                                """.formatted(scheduledAt, placeId, description)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return objectMapper.readValue(result.getResponse().getContentAsString(), DateProposalResponse.class);
     }
 
     private static String token(InvitationCreationResponse response) {
