@@ -1,8 +1,11 @@
 package com.dating.owoke.notification.telegram.service;
 
+import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -15,6 +18,9 @@ import tools.jackson.databind.JsonNode;
 
 @Component
 public class TelegramBotClient {
+
+    private static final int ERROR_DETAIL_LIMIT = 300;
+    private static final Set<String> LOCAL_HOSTS = Set.of("localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]");
 
     private final RestClient restClient;
     private final TelegramBotProperties properties;
@@ -31,7 +37,7 @@ public class TelegramBotClient {
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("chat_id", chatId);
         request.put("text", text);
-        if (actionUrl != null && !actionUrl.isBlank()) {
+        if (isPublicHttpUrl(actionUrl)) {
             request.put("reply_markup", Map.of(
                     "inline_keyboard", List.of(List.of(Map.of("text", "Открыть Owoke", "url", actionUrl)))));
         }
@@ -43,7 +49,7 @@ public class TelegramBotClient {
                     .retrieve()
                     .requiredBody(JsonNode.class);
         } catch (RestClientResponseException exception) {
-            throw new IllegalStateException("Telegram sendMessage returned " + exception.getStatusCode());
+            throw telegramResponseException("sendMessage", exception);
         } catch (RestClientException exception) {
             throw new IllegalStateException("Telegram sendMessage request failed");
         }
@@ -67,7 +73,7 @@ public class TelegramBotClient {
                     .retrieve()
                     .requiredBody(JsonNode.class);
         } catch (RestClientResponseException exception) {
-            throw new IllegalStateException("Telegram getUpdates returned " + exception.getStatusCode());
+            throw telegramResponseException("getUpdates", exception);
         } catch (RestClientException exception) {
             throw new IllegalStateException("Telegram getUpdates request failed");
         }
@@ -75,5 +81,34 @@ public class TelegramBotClient {
             throw new IllegalStateException("Telegram rejected getUpdates request");
         }
         return response.path("result");
+    }
+
+    private static boolean isPublicHttpUrl(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        try {
+            URI uri = URI.create(value);
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            return ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
+                    && host != null
+                    && !LOCAL_HOSTS.contains(host.toLowerCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
+    }
+
+    private static IllegalStateException telegramResponseException(
+            String operation,
+            RestClientResponseException exception) {
+        String detail = exception.getResponseBodyAsString().replaceAll("\\s+", " ").trim();
+        if (detail.length() > ERROR_DETAIL_LIMIT) {
+            detail = detail.substring(0, ERROR_DETAIL_LIMIT) + "…";
+        }
+        String suffix = detail.isEmpty() ? "" : ": " + detail;
+        return new IllegalStateException(
+                "Telegram " + operation + " returned " + exception.getStatusCode() + suffix,
+                exception);
     }
 }
