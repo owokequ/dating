@@ -34,6 +34,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.dating.owoke.dating.couple.dto.InvitationCreationResponse;
 import com.dating.owoke.dating.dateproposal.dto.DateProposalResponse;
+import com.dating.owoke.dating.dateproposal.messaging.service.DateProposalCommandProcessor;
 import com.dating.owoke.dating.placeprojection.messaging.service.PlaceEventProcessor;
 
 import tools.jackson.databind.ObjectMapper;
@@ -64,17 +65,20 @@ class CoupleInvitationIntegrationTest {
     private final ObjectMapper objectMapper;
     private final JdbcTemplate jdbcTemplate;
     private final PlaceEventProcessor placeEventProcessor;
+    private final DateProposalCommandProcessor dateProposalCommandProcessor;
 
     @Autowired
     CoupleInvitationIntegrationTest(
             MockMvc mockMvc,
             ObjectMapper objectMapper,
             DataSource dataSource,
-            PlaceEventProcessor placeEventProcessor) {
+            PlaceEventProcessor placeEventProcessor,
+            DateProposalCommandProcessor dateProposalCommandProcessor) {
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.placeEventProcessor = placeEventProcessor;
+        this.dateProposalCommandProcessor = dateProposalCommandProcessor;
     }
 
     @AfterEach
@@ -241,6 +245,66 @@ class CoupleInvitationIntegrationTest {
     }
 
     @Test
+    void telegramDecisionCommandAcceptsProposalAndIsIdempotent() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID partnerId = UUID.randomUUID();
+        activateCouple(ownerId, partnerId);
+        UUID placeId = UUID.randomUUID();
+        insertPlace(placeId, "Original cafe", "Kazan", "ACTIVE");
+        DateProposalResponse proposal = createProposal(
+                ownerId, placeId, "telegram-proposal", Instant.now().plusSeconds(86_400), "Dinner");
+
+        UUID commandId = UUID.randomUUID();
+        String command = dateDecisionCommand(
+                commandId, proposal.id(), proposal.coupleId(), partnerId, "ACCEPT");
+        dateProposalCommandProcessor.process("dating.commands.v1", command);
+        dateProposalCommandProcessor.process("dating.commands.v1", command);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM date_proposals WHERE id = ?", String.class, proposal.id()))
+                .isEqualTo("ACCEPTED");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM inbox_events WHERE event_id = ?", Integer.class, commandId))
+                .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV1'", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalDecisionResultV1'", Integer.class))
+                .isEqualTo(1);
+        var resultPayload = objectMapper.readTree(jdbcTemplate.queryForObject(
+                "SELECT payload FROM outbox_events WHERE event_type = 'DateProposalDecisionResultV1'", String.class))
+                .path("payload");
+        assertThat(resultPayload.path("successful").asBoolean()).isTrue();
+        assertThat(resultPayload.path("requestId").asString()).isEqualTo(commandId.toString());
+    }
+
+    @Test
+    void telegramDecisionCommandRecordsBusinessRejectionWithoutRetry() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID partnerId = UUID.randomUUID();
+        activateCouple(ownerId, partnerId);
+        UUID placeId = UUID.randomUUID();
+        insertPlace(placeId, "Original cafe", "Kazan", "ACTIVE");
+        DateProposalResponse proposal = createProposal(
+                ownerId, placeId, "telegram-rejected", Instant.now().plusSeconds(86_400), "Dinner");
+
+        dateProposalCommandProcessor.process(
+                "dating.commands.v1",
+                dateDecisionCommand(
+                        UUID.randomUUID(), proposal.id(), proposal.coupleId(), ownerId, "ACCEPT"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM date_proposals WHERE id = ?", String.class, proposal.id()))
+                .isEqualTo("PENDING_CONFIRMATION");
+        var resultPayload = objectMapper.readTree(jdbcTemplate.queryForObject(
+                "SELECT payload FROM outbox_events WHERE event_type = 'DateProposalDecisionResultV1'", String.class))
+                .path("payload");
+        assertThat(resultPayload.path("successful").asBoolean()).isFalse();
+        assertThat(resultPayload.path("errorCode").asString()).isEqualTo("ACTION_NOT_ALLOWED");
+    }
+
+    @Test
     void placeEventsAreIdempotentAndStaleRetryCannotRollbackProjection() {
         UUID placeId = UUID.randomUUID();
         UUID publishedEventId = UUID.randomUUID();
@@ -358,6 +422,31 @@ class CoupleInvitationIntegrationTest {
                 }
                 """.formatted(
                 eventId, eventType, placeId, occurredAt, UUID.randomUUID(), placeId, name, address, status);
+    }
+
+    private String dateDecisionCommand(
+            UUID eventId,
+            UUID proposalId,
+            UUID coupleId,
+            UUID actorId,
+            String decision) {
+        return """
+                {
+                  "eventId":"%s",
+                  "eventType":"DateProposalDecisionRequestedV1",
+                  "eventVersion":1,
+                  "aggregateId":"%s",
+                  "occurredAt":"%s",
+                  "correlationId":"%s",
+                  "payload":{
+                    "proposalId":"%s",
+                    "coupleId":"%s",
+                    "actorId":"%s",
+                    "decision":"%s"
+                  }
+                }
+                """.formatted(
+                eventId, coupleId, Instant.now(), UUID.randomUUID(), proposalId, coupleId, actorId, decision);
     }
 
     private static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor

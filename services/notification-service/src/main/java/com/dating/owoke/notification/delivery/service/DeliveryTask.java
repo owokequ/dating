@@ -11,5 +11,8 @@ public record DeliveryTask(
         String email,
         String title,
         String body,
-        String actionUrl) {
+        String actionUrl,
+        String notificationType,
+        UUID referenceId,
+        UUID contextId) {
 }

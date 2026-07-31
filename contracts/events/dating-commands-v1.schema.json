@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/dating-commands-v1.schema.json",
+  "title": "Dating commands V1 payloads",
+  "oneOf": [
+    {
+      "title": "DateProposalDecisionRequestedV1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposalId", "coupleId", "actorId", "decision"],
+      "properties": {
+        "proposalId": {"type": "string", "format": "uuid"},
+        "coupleId": {"type": "string", "format": "uuid"},
+        "actorId": {"type": "string", "format": "uuid"},
+        "decision": {"enum": ["ACCEPT", "DECLINE"]}
+      }
+    }
+  ]
+}

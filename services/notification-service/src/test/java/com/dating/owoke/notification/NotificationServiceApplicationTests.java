@@ -17,6 +17,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 
 import com.dating.owoke.notification.shared.messaging.service.IncomingEventProcessor;
+import com.dating.owoke.notification.telegram.service.BotCommandService;
+import com.dating.owoke.notification.telegram.domain.DateProposalCallback;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -35,6 +37,9 @@ class NotificationServiceApplicationTests {
 
     @Autowired
     private IncomingEventProcessor eventProcessor;
+
+    @Autowired
+    private BotCommandService botCommandService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -142,6 +147,73 @@ class NotificationServiceApplicationTests {
                 .isEqualTo("EMAIL_VERIFICATION");
         assertThat(jdbcTemplate.queryForObject("SELECT channel FROM delivery_attempts", String.class))
                 .isEqualTo("EMAIL");
+    }
+
+    @Test
+    void telegramDateCallbackPublishesOneIdempotentDatingCommand() {
+        UUID userId = UUID.randomUUID();
+        long telegramUserId = 123456789L;
+        processUserRegistered(userId, "Alice", "alice@example.com");
+        eventProcessor.process("identity.events.v1", envelope(
+                UUID.randomUUID(),
+                "UserTelegramLinkedV1",
+                userId,
+                Map.of(
+                        "userId", userId,
+                        "telegramUserId", telegramUserId,
+                        "username", "alice",
+                        "botAccess", true)));
+
+        UUID proposalId = UUID.randomUUID();
+        UUID coupleId = UUID.randomUUID();
+        botCommandService.handleDateProposalDecision(
+                777L, telegramUserId, telegramUserId,
+                new DateProposalCallback(proposalId, coupleId, "ACCEPT").encode());
+        botCommandService.handleDateProposalDecision(
+                777L, telegramUserId, telegramUserId,
+                new DateProposalCallback(proposalId, coupleId, "ACCEPT").encode());
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalDecisionRequestedV1'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT topic FROM outbox_events WHERE event_type = 'DateProposalDecisionRequestedV1'",
+                String.class)).isEqualTo("dating.commands.v1");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT payload FROM outbox_events WHERE event_type = 'DateProposalDecisionRequestedV1'",
+                String.class)).contains(proposalId.toString(), coupleId.toString(), userId.toString(), "ACCEPT");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT event_key FROM outbox_events WHERE event_type = 'DateProposalDecisionRequestedV1'",
+                String.class)).isEqualTo(coupleId.toString());
+        assertThat(count("telegram_updates")).isEqualTo(1);
+    }
+
+    @Test
+    void datingDecisionResultNotifiesTheTelegramActor() {
+        UUID userId = UUID.randomUUID();
+        UUID proposalId = UUID.randomUUID();
+        UUID coupleId = UUID.randomUUID();
+        processUserRegistered(userId, "Alice", "alice@example.com");
+
+        eventProcessor.process("dating.events.v1", envelope(
+                UUID.randomUUID(),
+                "DateProposalDecisionResultV1",
+                proposalId,
+                Map.of(
+                        "requestId", UUID.randomUUID(),
+                        "proposalId", proposalId,
+                        "coupleId", coupleId,
+                        "actorId", userId,
+                        "decision", "ACCEPT",
+                        "successful", true,
+                        "errorCode", "")));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT title FROM notifications WHERE type = 'DATE_PROPOSAL_DECISION_RESULT'",
+                String.class)).isEqualTo("Вы приняли свидание");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT reference_id FROM notifications WHERE type = 'DATE_PROPOSAL_DECISION_RESULT'",
+                UUID.class)).isEqualTo(proposalId);
     }
 
     @Test

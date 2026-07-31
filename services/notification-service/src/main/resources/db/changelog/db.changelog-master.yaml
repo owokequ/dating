@@ -1,3 +1,7 @@
 databaseChangeLog:
   - include:
       file: db/changelog/changes/001-create-notification-schema.yaml
+  - include:
+      file: db/changelog/changes/002-add-notification-reference-id.yaml
+  - include:
+      file: db/changelog/changes/003-add-notification-context-id.yaml

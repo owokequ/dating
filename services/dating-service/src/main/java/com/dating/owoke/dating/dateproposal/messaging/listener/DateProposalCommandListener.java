@@ -1,4 +1,4 @@
-package com.dating.owoke.dating.placeprojection.messaging.listener;
+package com.dating.owoke.dating.dateproposal.messaging.listener;
 
 import java.time.Clock;
 
@@ -12,7 +12,7 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.dating.owoke.dating.placeprojection.messaging.service.PlaceEventProcessor;
+import com.dating.owoke.dating.dateproposal.messaging.service.DateProposalCommandProcessor;
 import com.dating.owoke.dating.shared.messaging.domain.FailedMessage;
 import com.dating.owoke.dating.shared.messaging.domain.IncomingEventEnvelope;
 import com.dating.owoke.dating.shared.messaging.repository.FailedMessageRepository;
@@ -22,15 +22,15 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 @ConditionalOnProperty(prefix = "owoke.messaging", name = "consumers-enabled", havingValue = "true", matchIfMissing = true)
-public class PlaceEventListener {
+public class DateProposalCommandListener {
 
-    private final PlaceEventProcessor processor;
+    private final DateProposalCommandProcessor processor;
     private final FailedMessageRepository failedMessageRepository;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
-    public PlaceEventListener(
-            PlaceEventProcessor processor,
+    public DateProposalCommandListener(
+            DateProposalCommandProcessor processor,
             FailedMessageRepository failedMessageRepository,
             ObjectMapper objectMapper,
             Clock clock) {
@@ -47,8 +47,8 @@ public class PlaceEventListener {
             dltTopicSuffix = ".dlt",
             sameIntervalTopicReuseStrategy = SameIntervalTopicReuseStrategy.SINGLE_TOPIC,
             kafkaTemplate = "kafkaTemplate")
-    @KafkaListener(topics = "places.events.v1")
-    public void onEvent(String message, @Header("kafka_receivedTopic") String topic) {
+    @KafkaListener(topics = "dating.commands.v1")
+    public void onCommand(String message, @Header("kafka_receivedTopic") String topic) {
         processor.process(topic, message);
     }
 

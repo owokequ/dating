@@ -41,6 +41,24 @@
           }
         }
       ]
+    },
+    {
+      "title": "DateProposalDecisionResultV1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestId", "proposalId", "coupleId", "actorId", "decision", "successful", "errorCode"],
+      "properties": {
+        "requestId": {"type": "string", "format": "uuid"},
+        "proposalId": {"type": "string", "format": "uuid"},
+        "coupleId": {"type": "string", "format": "uuid"},
+        "actorId": {"type": "string", "format": "uuid"},
+        "decision": {"enum": ["ACCEPT", "DECLINE"]},
+        "successful": {"type": "boolean"},
+        "errorCode": {
+          "type": ["string", "null"],
+          "enum": ["PROPOSAL_NOT_FOUND", "ACTION_NOT_ALLOWED", "COUPLE_NOT_ACTIVE", null]
+        }
+      }
     }
   ]
 }

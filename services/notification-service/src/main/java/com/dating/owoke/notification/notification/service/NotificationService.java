@@ -48,11 +48,35 @@ public class NotificationService {
             String title,
             String body,
             String actionUrl) {
+        return create(sourceEventId, userId, type, title, body, actionUrl, null);
+    }
+
+    public Notification create(
+            UUID sourceEventId,
+            UUID userId,
+            String type,
+            String title,
+            String body,
+            String actionUrl,
+            UUID referenceId) {
+        return create(sourceEventId, userId, type, title, body, actionUrl, referenceId, null);
+    }
+
+    public Notification create(
+            UUID sourceEventId,
+            UUID userId,
+            String type,
+            String title,
+            String body,
+            String actionUrl,
+            UUID referenceId,
+            UUID contextId) {
         ContactProjection contact = contactService.required(userId);
         NotificationPreference preference = preferenceRepository.findById(userId)
                 .orElseThrow(() -> new IllegalStateException("Notification preferences are missing for " + userId));
         Notification notification = notificationRepository.save(
-                new Notification(sourceEventId, userId, type, title, body, actionUrl, clock.instant()));
+                new Notification(
+                        sourceEventId, userId, type, title, body, actionUrl, referenceId, contextId, clock.instant()));
 
         DeliveryChannel channel = selectChannel(contact, preference);
         if (channel != null) {

@@ -16,6 +16,7 @@ import com.dating.owoke.notification.shared.configuration.NotificationProperties
 import com.dating.owoke.notification.shared.messaging.domain.EventEnvelope;
 import com.dating.owoke.notification.shared.messaging.domain.InboxEvent;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalCreatedV1;
+import com.dating.owoke.notification.shared.messaging.event.DateProposalDecisionResultV1;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalStatusChangedV1;
 import com.dating.owoke.notification.shared.messaging.event.EmailNotificationRequestedV1;
 import com.dating.owoke.notification.shared.messaging.event.UserProfileUpdatedV1;
@@ -86,6 +87,8 @@ public class IncomingEventProcessor {
                     envelope, DateProposalCreatedV1.class));
             case "DateProposalAcceptedV1", "DateProposalDeclinedV1", "DateProposalCancelledV1" ->
                     proposalStatusChanged(envelope, payload(envelope, DateProposalStatusChangedV1.class));
+            case "DateProposalDecisionResultV1" -> proposalDecisionResult(
+                    envelope, payload(envelope, DateProposalDecisionResultV1.class));
             case "CoupleActivatedV1", "CoupleClosedV1" -> {
                 // Reserved for later couple-specific notifications. Recording it in the inbox is intentional.
             }
@@ -142,7 +145,9 @@ public class IncomingEventProcessor {
                 "DATE_PROPOSAL_CREATED",
                 "Новое предложение свидания",
                 proposalBody(event.scheduledAt(), event.placeName(), event.placeAddress(), event.description()),
-                dateUrl(event.proposalId()));
+                dateUrl(event.proposalId()),
+                event.proposalId(),
+                event.coupleId());
     }
 
     private void proposalStatusChanged(EventEnvelope envelope, DateProposalStatusChangedV1 event) {
@@ -177,6 +182,35 @@ public class IncomingEventProcessor {
         } else if ("CANCELLED".equals(event.status())) {
             reminderService.cancel(event.proposalId());
         }
+    }
+
+    private void proposalDecisionResult(EventEnvelope envelope, DateProposalDecisionResultV1 event) {
+        String title;
+        String body;
+        if (event.successful()) {
+            boolean accepted = "ACCEPT".equals(event.decision());
+            title = accepted ? "Вы приняли свидание" : "Вы отклонили предложение";
+            body = accepted
+                    ? "Статус свидания изменён. Детали доступны на сайте Owoke."
+                    : "Предложение отклонено. Детали доступны на сайте Owoke.";
+        } else {
+            title = "Не удалось изменить свидание";
+            body = switch (event.errorCode()) {
+                case "PROPOSAL_NOT_FOUND" -> "Предложение не найдено или больше недоступно.";
+                case "ACTION_NOT_ALLOWED" -> "Это действие уже недоступно для текущего статуса свидания.";
+                case "COUPLE_NOT_ACTIVE" -> "Пара больше не активна.";
+                default -> "Повторите действие на сайте Owoke.";
+            };
+        }
+        notificationService.create(
+                envelope.eventId(),
+                event.actorId(),
+                "DATE_PROPOSAL_DECISION_RESULT",
+                title,
+                body,
+                dateUrl(event.proposalId()),
+                event.proposalId(),
+                event.coupleId());
     }
 
     private String proposalBody(java.time.Instant scheduledAt, String place, String address, String description) {

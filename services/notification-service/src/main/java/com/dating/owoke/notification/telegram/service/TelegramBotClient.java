@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.dating.owoke.notification.telegram.configuration.TelegramBotProperties;
+import com.dating.owoke.notification.telegram.dto.TelegramInlineButton;
 
 import tools.jackson.databind.JsonNode;
 
@@ -31,15 +32,31 @@ public class TelegramBotClient {
     }
 
     public String send(long chatId, String text, String actionUrl) {
+        return send(chatId, text, actionUrl, List.of());
+    }
+
+    public String send(
+            long chatId,
+            String text,
+            String actionUrl,
+            List<TelegramInlineButton> callbackButtons) {
         if (!properties.isConfigured()) {
             throw new IllegalStateException("Telegram bot is disabled or not configured");
         }
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("chat_id", chatId);
         request.put("text", text);
+        List<List<Map<String, String>>> keyboard = new java.util.ArrayList<>();
+        if (callbackButtons != null && !callbackButtons.isEmpty()) {
+            keyboard.add(callbackButtons.stream()
+                    .map(button -> Map.of("text", button.text(), "callback_data", button.callbackData()))
+                    .toList());
+        }
         if (isPublicHttpUrl(actionUrl)) {
-            request.put("reply_markup", Map.of(
-                    "inline_keyboard", List.of(List.of(Map.of("text", "Открыть Owoke", "url", actionUrl)))));
+            keyboard.add(List.of(Map.of("text", "Открыть Owoke", "url", actionUrl)));
+        }
+        if (!keyboard.isEmpty()) {
+            request.put("reply_markup", Map.of("inline_keyboard", keyboard));
         }
         JsonNode response;
         try {
@@ -57,6 +74,30 @@ public class TelegramBotClient {
             throw new IllegalStateException("Telegram rejected sendMessage request");
         }
         return response.path("result").path("message_id").asString();
+    }
+
+    public void answerCallbackQuery(String callbackQueryId, String text) {
+        if (!properties.isConfigured()) {
+            throw new IllegalStateException("Telegram bot is disabled or not configured");
+        }
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("callback_query_id", callbackQueryId);
+        request.put("text", text);
+        JsonNode response;
+        try {
+            response = restClient.post()
+                    .uri("/bot{token}/answerCallbackQuery", properties.botToken())
+                    .body(request)
+                    .retrieve()
+                    .requiredBody(JsonNode.class);
+        } catch (RestClientResponseException exception) {
+            throw telegramResponseException("answerCallbackQuery", exception);
+        } catch (RestClientException exception) {
+            throw new IllegalStateException("Telegram answerCallbackQuery request failed");
+        }
+        if (!response.path("ok").asBoolean(false)) {
+            throw new IllegalStateException("Telegram rejected answerCallbackQuery request");
+        }
     }
 
     public JsonNode getUpdates(long offset) {

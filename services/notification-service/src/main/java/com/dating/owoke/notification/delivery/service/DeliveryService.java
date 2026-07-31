@@ -77,7 +77,10 @@ public class DeliveryService {
                 contact.getEmail(),
                 notification.getTitle(),
                 notification.getBody(),
-                notification.getActionUrl());
+                notification.getActionUrl(),
+                notification.getType(),
+                notification.getReferenceId(),
+                notification.getContextId());
     }
 
     private void createEmailFallback(java.util.UUID notificationId) {

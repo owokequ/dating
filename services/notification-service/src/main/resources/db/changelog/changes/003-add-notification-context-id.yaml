@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-add-notification-context-id
+      author: codex
+      changes:
+        - addColumn:
+            tableName: notifications
+            columns:
+              - column:
+                  name: context_id
+                  type: uuid
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_context
+            columns:
+              - column:
+                  name: context_id

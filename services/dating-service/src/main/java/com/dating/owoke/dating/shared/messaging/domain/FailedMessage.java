@@ -1,4 +1,4 @@
-package com.dating.owoke.dating.placeprojection.messaging.domain;
+package com.dating.owoke.dating.shared.messaging.domain;
 
 import java.time.Instant;
 import java.util.UUID;

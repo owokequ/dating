@@ -34,6 +34,12 @@ public class Notification {
     @Column(name = "action_url", updatable = false, length = 1000)
     private String actionUrl;
 
+    @Column(name = "reference_id", updatable = false)
+    private UUID referenceId;
+
+    @Column(name = "context_id", updatable = false)
+    private UUID contextId;
+
     @Column(name = "read_at")
     private Instant readAt;
 
@@ -51,6 +57,31 @@ public class Notification {
             String body,
             String actionUrl,
             Instant now) {
+        this(sourceEventId, userId, type, title, body, actionUrl, null, now);
+    }
+
+    public Notification(
+            UUID sourceEventId,
+            UUID userId,
+            String type,
+            String title,
+            String body,
+            String actionUrl,
+            UUID referenceId,
+            Instant now) {
+        this(sourceEventId, userId, type, title, body, actionUrl, referenceId, null, now);
+    }
+
+    public Notification(
+            UUID sourceEventId,
+            UUID userId,
+            String type,
+            String title,
+            String body,
+            String actionUrl,
+            UUID referenceId,
+            UUID contextId,
+            Instant now) {
         this.id = UUID.randomUUID();
         this.sourceEventId = Objects.requireNonNull(sourceEventId, "sourceEventId must not be null");
         this.userId = Objects.requireNonNull(userId, "userId must not be null");
@@ -58,6 +89,8 @@ public class Notification {
         this.title = requireText(title, "title");
         this.body = requireText(body, "body");
         this.actionUrl = actionUrl;
+        this.referenceId = referenceId;
+        this.contextId = contextId;
         this.createdAt = Objects.requireNonNull(now, "now must not be null");
     }
 
@@ -89,6 +122,14 @@ public class Notification {
 
     public String getActionUrl() {
         return actionUrl;
+    }
+
+    public UUID getReferenceId() {
+        return referenceId;
+    }
+
+    public UUID getContextId() {
+        return contextId;
     }
 
     public Instant getReadAt() {

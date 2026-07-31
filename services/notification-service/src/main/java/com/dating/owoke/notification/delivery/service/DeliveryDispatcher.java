@@ -1,10 +1,14 @@
 package com.dating.owoke.notification.delivery.service;
 
+import java.util.List;
+
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import com.dating.owoke.notification.email.service.EmailClient;
+import com.dating.owoke.notification.telegram.dto.TelegramInlineButton;
+import com.dating.owoke.notification.telegram.domain.DateProposalCallback;
 import com.dating.owoke.notification.telegram.service.TelegramBotClient;
 
 @Component
@@ -37,7 +41,8 @@ public class DeliveryDispatcher {
                 case TELEGRAM -> telegramClient.send(
                         required(task.telegramChatId(), "Telegram chat is not linked"),
                         task.title() + "\n\n" + task.body(),
-                        task.actionUrl());
+                        task.actionUrl(),
+                        telegramButtons(task));
                 case EMAIL -> emailClient.send(
                         required(task.email(), "Email is not available"),
                         task.title(),
@@ -55,5 +60,18 @@ public class DeliveryDispatcher {
             throw new IllegalStateException(message);
         }
         return value;
+    }
+
+    private static List<TelegramInlineButton> telegramButtons(DeliveryTask task) {
+        if (!"DATE_PROPOSAL_CREATED".equals(task.notificationType())
+                || task.referenceId() == null
+                || task.contextId() == null) {
+            return List.of();
+        }
+        return List.of(
+                new TelegramInlineButton("Принять", new DateProposalCallback(
+                        task.referenceId(), task.contextId(), "ACCEPT").encode()),
+                new TelegramInlineButton("Отклонить", new DateProposalCallback(
+                        task.referenceId(), task.contextId(), "DECLINE").encode()));
     }
 }

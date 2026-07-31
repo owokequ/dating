@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-add-notification-reference-id
+      author: codex
+      changes:
+        - addColumn:
+            tableName: notifications
+            columns:
+              - column:
+                  name: reference_id
+                  type: uuid
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_reference
+            columns:
+              - column:
+                  name: reference_id

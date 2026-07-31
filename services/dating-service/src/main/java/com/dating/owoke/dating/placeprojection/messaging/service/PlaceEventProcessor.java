@@ -7,11 +7,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dating.owoke.dating.placeprojection.domain.PlaceProjectionStatus;
-import com.dating.owoke.dating.placeprojection.messaging.domain.InboxEvent;
-import com.dating.owoke.dating.placeprojection.messaging.domain.IncomingEventEnvelope;
 import com.dating.owoke.dating.placeprojection.messaging.domain.PlaceChangedV1;
-import com.dating.owoke.dating.placeprojection.messaging.repository.InboxEventRepository;
 import com.dating.owoke.dating.placeprojection.service.PlaceProjectionService;
+import com.dating.owoke.dating.shared.messaging.domain.InboxEvent;
+import com.dating.owoke.dating.shared.messaging.domain.IncomingEventEnvelope;
+import com.dating.owoke.dating.shared.messaging.repository.InboxEventRepository;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
