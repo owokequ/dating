@@ -5,4 +5,9 @@
 target/
 **/target/
 *.log
-
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+web-app/vite.config.js
+web-app/vite.config.d.ts

@@ -56,6 +56,28 @@ Run an individual service with `-pl`, for example:
 .\mvnw.cmd -pl services/identity-service spring-boot:run
 ```
 
+Run the regular React website in another terminal:
+
+```powershell
+cd web-app
+npm ci
+npm run dev
+```
+
+Vite serves `http://localhost:5173` and proxies `/api` to the API Gateway on
+port `8080`. Production serves the built `web-app/dist` and `/api` under one
+HTTPS origin. Browser JavaScript never receives access or refresh tokens;
+requests use HttpOnly cookies plus the readable `XSRF-TOKEN` cookie.
+
+Frontend verification:
+
+```powershell
+cd web-app
+npm run lint
+npm test
+npm run build
+```
+
 Configuration keys are documented in `.env.example`. Spring Boot does not load
 that file automatically; configure variables in the IDE or shell. Never commit
 real bot tokens, OIDC secrets, signing keys or provider API keys.

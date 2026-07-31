@@ -1,0 +1,34 @@
+import { apiRequest, idempotencyKey, jsonBody } from '../../../shared/api/http'
+
+export type DateStatus = 'PENDING_CONFIRMATION' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED' | 'COMPLETED'
+export type DateProposal = {
+  id: string
+  coupleId: string
+  proposerId: string
+  responderId: string
+  scheduledAt: string
+  timezone: 'Europe/Moscow'
+  placeId: string
+  placeName: string
+  placeAddress: string
+  description: string | null
+  status: DateStatus
+  createdAt: string
+  decidedAt: string | null
+  cancelledAt: string | null
+  version: number
+}
+
+export const listDates = () => apiRequest<DateProposal[]>('/api/v1/date-proposals')
+export const getDate = (id: string) => apiRequest<DateProposal>(`/api/v1/date-proposals/${id}`)
+export const createDate = (input: { scheduledAt: string; placeId: string; description?: string }) =>
+  apiRequest<DateProposal>('/api/v1/date-proposals', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey() },
+    body: jsonBody(input),
+  })
+export const decideDate = (id: string, action: 'accept' | 'decline' | 'cancel') =>
+  apiRequest<DateProposal>(`/api/v1/date-proposals/${id}/${action}`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey() },
+  })
