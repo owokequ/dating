@@ -6,6 +6,7 @@ export type AccountProfile = {
   email: string | null
   displayName: string
   status: 'PENDING_VERIFICATION' | 'ACTIVE' | 'DISABLED'
+  role: 'USER' | 'ADMIN'
   telegramLinked: boolean
 }
 

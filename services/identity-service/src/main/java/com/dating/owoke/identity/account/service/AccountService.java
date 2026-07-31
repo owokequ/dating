@@ -65,6 +65,7 @@ public class AccountService {
                 account.getEmail(),
                 account.getDisplayName(),
                 account.getStatus(),
+                account.getRole(),
                 telegramLinked);
     }
 }

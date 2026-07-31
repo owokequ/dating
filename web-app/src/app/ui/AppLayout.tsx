@@ -27,6 +27,7 @@ export function AppLayout() {
               <a href="/couple">Пара</a>
               <a href="/notifications">Уведомления</a>
               <a href="/settings">Настройки</a>
+              {session.data.role === 'ADMIN' && <a className="admin-link" href="/admin/places">Admin</a>}
               <button className="link-button" onClick={() => logoutMutation.mutate()}>Выйти</button>
             </>
           ) : (

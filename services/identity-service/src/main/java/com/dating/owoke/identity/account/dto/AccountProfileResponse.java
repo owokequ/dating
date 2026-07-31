@@ -2,6 +2,7 @@ package com.dating.owoke.identity.account.dto;
 
 import java.util.UUID;
 
+import com.dating.owoke.identity.account.domain.AccountRole;
 import com.dating.owoke.identity.account.domain.AccountStatus;
 import com.dating.owoke.identity.account.service.AccountProfile;
 
@@ -10,6 +11,7 @@ public record AccountProfileResponse(
         String email,
         String displayName,
         AccountStatus status,
+        AccountRole role,
         boolean telegramLinked) {
 
     public static AccountProfileResponse from(AccountProfile profile) {
@@ -18,6 +20,7 @@ public record AccountProfileResponse(
                 profile.email(),
                 profile.displayName(),
                 profile.status(),
+                profile.role(),
                 profile.telegramLinked());
     }
 }

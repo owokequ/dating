@@ -1,8 +1,11 @@
 package com.dating.owoke.identity.authentication;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.net.URI;
@@ -157,6 +160,20 @@ class AuthenticationFlowIntegrationTest {
 
         int after = jdbcTemplate.queryForObject("SELECT count(*) FROM outbox_events", Integer.class);
         assertThat(after).isEqualTo(before);
+    }
+
+    @Test
+    void profileExposesRoleForFrontendAuthorizationUx() throws Exception {
+        register("admin@example.com", "Local Admin");
+        UUID userId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE email = 'admin@example.com'", UUID.class);
+        jdbcTemplate.update("UPDATE users SET role = 'ADMIN' WHERE id = ?", userId);
+
+        mockMvc.perform(get("/api/v1/users/me")
+                        .with(jwt().jwt(token -> token.subject(userId.toString()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(userId.toString()))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
     }
 
     @Test
