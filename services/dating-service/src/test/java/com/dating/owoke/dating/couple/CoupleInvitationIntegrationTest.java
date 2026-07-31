@@ -34,10 +34,14 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import com.dating.owoke.dating.couple.dto.InvitationCreationResponse;
 import com.dating.owoke.dating.dateproposal.dto.DateProposalResponse;
+import com.dating.owoke.dating.placeprojection.messaging.service.PlaceEventProcessor;
 
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = "owoke.outbox.enabled=false")
+@SpringBootTest(properties = {
+        "owoke.outbox.enabled=false",
+        "owoke.messaging.consumers-enabled=false"
+})
 @AutoConfigureMockMvc
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -59,17 +63,23 @@ class CoupleInvitationIntegrationTest {
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final PlaceEventProcessor placeEventProcessor;
 
     @Autowired
-    CoupleInvitationIntegrationTest(MockMvc mockMvc, ObjectMapper objectMapper, DataSource dataSource) {
+    CoupleInvitationIntegrationTest(
+            MockMvc mockMvc,
+            ObjectMapper objectMapper,
+            DataSource dataSource,
+            PlaceEventProcessor placeEventProcessor) {
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
         this.jdbcTemplate = new JdbcTemplate(dataSource);
+        this.placeEventProcessor = placeEventProcessor;
     }
 
     @AfterEach
     void cleanDatabase() {
-        jdbcTemplate.execute("TRUNCATE TABLE idempotency_records, date_proposals, place_projections, "
+        jdbcTemplate.execute("TRUNCATE TABLE failed_messages, inbox_events, idempotency_records, date_proposals, place_projections, "
                 + "outbox_events, couple_invitations, couple_members, couples CASCADE");
     }
 
@@ -230,6 +240,32 @@ class CoupleInvitationIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void placeEventsAreIdempotentAndStaleRetryCannotRollbackProjection() {
+        UUID placeId = UUID.randomUUID();
+        UUID publishedEventId = UUID.randomUUID();
+        Instant publishedAt = Instant.parse("2026-01-01T10:00:00Z");
+
+        String published = placeEvent(
+                publishedEventId, "PlacePublishedV1", publishedAt, placeId, "First name", "First address", "ACTIVE");
+        placeEventProcessor.process("places.events.v1", published);
+        placeEventProcessor.process("places.events.v1", published);
+        placeEventProcessor.process("places.events.v1", placeEvent(
+                UUID.randomUUID(), "PlaceArchivedV1", publishedAt.plusSeconds(60),
+                placeId, "Final name", "Final address", "ARCHIVED"));
+        placeEventProcessor.process("places.events.v1.retry", placeEvent(
+                UUID.randomUUID(), "PlaceUpdatedV1", publishedAt.plusSeconds(30),
+                placeId, "Stale name", "Stale address", "ACTIVE"));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM place_projections", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM inbox_events", Integer.class)).isEqualTo(3);
+        assertThat(jdbcTemplate.queryForMap(
+                "SELECT name, address, status FROM place_projections WHERE id = ?", placeId))
+                .containsEntry("name", "Final name")
+                .containsEntry("address", "Final address")
+                .containsEntry("status", "ARCHIVED");
+    }
+
     private int acceptAfter(CountDownLatch start, String token, UUID userId) throws Exception {
         start.await();
         return mockMvc.perform(post("/api/v1/couple-invitations/{token}/accept", token)
@@ -290,6 +326,38 @@ class CoupleInvitationIntegrationTest {
 
     private static String token(InvitationCreationResponse response) {
         return response.inviteUrl().substring(response.inviteUrl().lastIndexOf('/') + 1);
+    }
+
+    private String placeEvent(
+            UUID eventId,
+            String eventType,
+            Instant occurredAt,
+            UUID placeId,
+            String name,
+            String address,
+            String status) {
+        return """
+                {
+                  "eventId":"%s",
+                  "eventType":"%s",
+                  "eventVersion":1,
+                  "aggregateId":"%s",
+                  "occurredAt":"%s",
+                  "correlationId":"%s",
+                  "payload":{
+                    "placeId":"%s",
+                    "cityCode":"KZN",
+                    "name":"%s",
+                    "address":"%s",
+                    "category":"CAFE",
+                    "latitude":55.796,
+                    "longitude":49.106,
+                    "priceLevel":2,
+                    "status":"%s"
+                  }
+                }
+                """.formatted(
+                eventId, eventType, placeId, occurredAt, UUID.randomUUID(), placeId, name, address, status);
     }
 
     private static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor

@@ -51,6 +51,15 @@ public class PlaceProjection {
         this.updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
 
+    public boolean updateIfNewer(String name, String address, PlaceProjectionStatus status, Instant eventOccurredAt) {
+        Objects.requireNonNull(eventOccurredAt, "eventOccurredAt must not be null");
+        if (!eventOccurredAt.isAfter(updatedAt)) {
+            return false;
+        }
+        update(name, address, status, eventOccurredAt);
+        return true;
+    }
+
     public boolean isActive() {
         return status == PlaceProjectionStatus.ACTIVE;
     }
@@ -65,6 +74,14 @@ public class PlaceProjection {
 
     public String getAddress() {
         return address;
+    }
+
+    public PlaceProjectionStatus getStatus() {
+        return status;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 
     private static String requireText(String value, String field, int maxLength) {

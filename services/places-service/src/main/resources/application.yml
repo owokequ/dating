@@ -9,13 +9,42 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:dating-redis}
+      database: ${PLACES_REDIS_DATABASE:2}
+      repositories:
+        enabled: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 server:
   port: ${PLACES_SERVICE_PORT:8084}
+
+owoke:
+  security:
+    issuer: ${OWOKE_JWT_ISSUER:http://localhost:8081}
+    audience: ${OWOKE_JWT_AUDIENCE:owoke-api}
+    jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8081/.well-known/jwks.json}
+  two-gis:
+    enabled: ${TWO_GIS_ENABLED:false}
+    api-key: ${TWO_GIS_API_KEY:}
+    base-url: https://catalog.api.2gis.com
+    location: 49.1064,55.7963
+    radius-meters: 40000
+    page-size: 50
+    requests-per-second: 2
+    queries:
+      - кафе
+      - ресторан
+      - развлечения
 
 management:
   endpoints:

@@ -1,6 +1,6 @@
 package com.dating.owoke.dating.placeprojection.service;
 
-import java.time.Clock;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -14,21 +14,24 @@ import com.dating.owoke.dating.placeprojection.repository.PlaceProjectionReposit
 public class PlaceProjectionService {
 
     private final PlaceProjectionRepository repository;
-    private final Clock clock;
-
-    public PlaceProjectionService(PlaceProjectionRepository repository, Clock clock) {
+    public PlaceProjectionService(PlaceProjectionRepository repository) {
         this.repository = repository;
-        this.clock = clock;
     }
 
     @Transactional
-    public void upsert(UUID placeId, String name, String address, PlaceProjectionStatus status) {
+    public void upsert(
+            UUID placeId,
+            String name,
+            String address,
+            PlaceProjectionStatus status,
+            Instant eventOccurredAt) {
         PlaceProjection place = repository.findById(placeId).orElse(null);
         if (place == null) {
-            place = new PlaceProjection(placeId, name, address, status, clock.instant());
-        } else {
-            place.update(name, address, status, clock.instant());
+            repository.save(new PlaceProjection(placeId, name, address, status, eventOccurredAt));
+            return;
         }
-        repository.save(place);
+        if (place.updateIfNewer(name, address, status, eventOccurredAt)) {
+            repository.save(place);
+        }
     }
 }

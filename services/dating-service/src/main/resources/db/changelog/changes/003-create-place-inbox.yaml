@@ -1,0 +1,27 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-place-inbox
+      author: codex
+      changes:
+        - createTable:
+            tableName: inbox_events
+            columns:
+              - column: { name: event_id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: event_type, type: varchar(128), constraints: { nullable: false } }
+              - column: { name: topic, type: varchar(128), constraints: { nullable: false } }
+              - column: { name: received_at, type: timestamp with time zone, constraints: { nullable: false } }
+        - createTable:
+            tableName: failed_messages
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: event_id, type: uuid }
+              - column: { name: topic, type: varchar(128), constraints: { nullable: false } }
+              - column: { name: event_type, type: varchar(128) }
+              - column: { name: payload, type: text, constraints: { nullable: false } }
+              - column: { name: error_message, type: varchar(1000), constraints: { nullable: false } }
+              - column: { name: failed_at, type: timestamp with time zone, constraints: { nullable: false } }
+        - createIndex:
+            tableName: failed_messages
+            indexName: idx_failed_messages_failed_at
+            columns:
+              - column: { name: failed_at, descending: true }

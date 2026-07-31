@@ -1,0 +1,57 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-places-schema
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE TABLE places (
+                  id UUID PRIMARY KEY,
+                  city_code VARCHAR(8) NOT NULL,
+                  name VARCHAR(200) NOT NULL,
+                  normalized_name VARCHAR(200) NOT NULL,
+                  description VARCHAR(2000),
+                  category VARCHAR(64) NOT NULL,
+                  address VARCHAR(500) NOT NULL,
+                  normalized_address VARCHAR(500) NOT NULL,
+                  latitude DOUBLE PRECISION NOT NULL,
+                  longitude DOUBLE PRECISION NOT NULL,
+                  price_level INTEGER,
+                  source VARCHAR(16) NOT NULL,
+                  external_id VARCHAR(128),
+                  status VARCHAR(16) NOT NULL,
+                  created_at TIMESTAMPTZ NOT NULL,
+                  updated_at TIMESTAMPTZ NOT NULL,
+                  version BIGINT NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_place_city CHECK (city_code = 'KZN'),
+                  CONSTRAINT ck_place_source CHECK (source IN ('MANUAL', 'TWO_GIS')),
+                  CONSTRAINT ck_place_status CHECK (status IN ('ACTIVE', 'ARCHIVED')),
+                  CONSTRAINT ck_place_price CHECK (price_level IS NULL OR price_level BETWEEN 1 AND 4),
+                  CONSTRAINT ck_place_latitude CHECK (latitude BETWEEN -90 AND 90),
+                  CONSTRAINT ck_place_longitude CHECK (longitude BETWEEN -180 AND 180),
+                  CONSTRAINT ck_external_source CHECK (
+                      (source = 'MANUAL' AND external_id IS NULL)
+                      OR (source = 'TWO_GIS' AND external_id IS NOT NULL))
+              );
+              CREATE UNIQUE INDEX uk_places_source_external
+                  ON places(source, external_id) WHERE external_id IS NOT NULL;
+              CREATE INDEX idx_places_catalog
+                  ON places(city_code, status, category, name);
+              CREATE UNIQUE INDEX uk_places_normalized_identity
+                  ON places(normalized_name, normalized_address);
+
+              CREATE TABLE outbox_events (
+                  id UUID PRIMARY KEY,
+                  topic VARCHAR(128) NOT NULL,
+                  event_key VARCHAR(128) NOT NULL,
+                  event_type VARCHAR(128) NOT NULL,
+                  payload JSONB NOT NULL,
+                  occurred_at TIMESTAMPTZ NOT NULL,
+                  published_at TIMESTAMPTZ,
+                  attempts INTEGER NOT NULL DEFAULT 0,
+                  next_attempt_at TIMESTAMPTZ NOT NULL,
+                  last_error VARCHAR(1000)
+              );
+              CREATE INDEX idx_places_outbox_pending
+                  ON outbox_events(published_at, next_attempt_at);
