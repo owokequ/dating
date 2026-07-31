@@ -30,7 +30,8 @@ public class NotificationSecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health", "/actuator/health/**", "/api/v1/telegram/webhook")
+                        .requestMatchers(
+                                "/actuator/health", "/actuator/health/**", "/actuator/prometheus", "/api/v1/telegram/webhook")
                         .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer

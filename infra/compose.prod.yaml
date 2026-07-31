@@ -1,0 +1,278 @@
+name: owoke-prod
+
+x-backend: &backend
+  restart: unless-stopped
+  networks: [backend]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+  deploy:
+    resources:
+      limits: { memory: 768M }
+
+x-observability: &observability
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: logstash
+  MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0.1"
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      OWOKE_DOMAIN: ${OWOKE_DOMAIN:?OWOKE_DOMAIN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    depends_on:
+      api-gateway: { condition: service_healthy }
+    networks: [edge, backend]
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+  api-gateway:
+    <<: *backend
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: api-gateway }
+    environment:
+      <<: *observability
+      API_GATEWAY_PORT: 8080
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: ${REDIS_USERNAME:?REDIS_USERNAME is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      DATING_SERVICE_URL: http://dating-service:8082
+      NOTIFICATION_SERVICE_URL: http://notification-service:8083
+      PLACES_SERVICE_URL: http://places-service:8084
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      WEB_APP_ORIGIN: https://${OWOKE_DOMAIN:?OWOKE_DOMAIN is required}
+      COOKIE_SECURE: "true"
+    depends_on:
+      redis: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 30s }
+
+  identity-service:
+    <<: *backend
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: identity-service }
+    environment:
+      <<: *observability
+      IDENTITY_DB_URL: jdbc:postgresql://identity-postgres:5432/owoke_identity
+      IDENTITY_DB_USERNAME: owoke_identity
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: ${REDIS_USERNAME:?REDIS_USERNAME is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
+      OWOKE_JWT_KEY_ID: ${OWOKE_JWT_KEY_ID:?OWOKE_JWT_KEY_ID is required}
+      OWOKE_JWT_PRIVATE_KEY_BASE64: ${OWOKE_JWT_PRIVATE_KEY_BASE64:?OWOKE_JWT_PRIVATE_KEY_BASE64 is required}
+      OWOKE_JWT_PUBLIC_KEY_BASE64: ${OWOKE_JWT_PUBLIC_KEY_BASE64:?OWOKE_JWT_PUBLIC_KEY_BASE64 is required}
+      WEB_APP_URL: https://${OWOKE_DOMAIN:?OWOKE_DOMAIN is required}
+      COOKIE_SECURE: "true"
+      TELEGRAM_OIDC_CLIENT_ID: ${TELEGRAM_OIDC_CLIENT_ID:?TELEGRAM_OIDC_CLIENT_ID is required}
+      TELEGRAM_OIDC_CLIENT_SECRET: ${TELEGRAM_OIDC_CLIENT_SECRET:?TELEGRAM_OIDC_CLIENT_SECRET is required}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:?TELEGRAM_BOT_USERNAME is required}
+      TELEGRAM_OIDC_REDIRECT_URI: https://${OWOKE_DOMAIN:?OWOKE_DOMAIN is required}/api/v1/auth/telegram/callback
+    depends_on:
+      identity-postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 45s }
+
+  dating-service:
+    <<: *backend
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: dating-service }
+    environment:
+      <<: *observability
+      DATING_DB_URL: jdbc:postgresql://dating-postgres:5432/owoke_dating
+      DATING_DB_USERNAME: owoke_dating
+      DATING_DB_PASSWORD: ${DATING_DB_PASSWORD:?DATING_DB_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      WEB_APP_URL: https://${OWOKE_DOMAIN:?OWOKE_DOMAIN is required}
+    depends_on:
+      dating-postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 45s }
+
+  notification-service:
+    <<: *backend
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: notification-service }
+    environment:
+      <<: *observability
+      NOTIFICATION_DB_URL: jdbc:postgresql://notification-postgres:5432/owoke_notification
+      NOTIFICATION_DB_USERNAME: owoke_notification
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: ${REDIS_USERNAME:?REDIS_USERNAME is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      WEB_APP_URL: https://${OWOKE_DOMAIN:?OWOKE_DOMAIN is required}
+      TELEGRAM_BOT_ENABLED: ${TELEGRAM_BOT_ENABLED:-true}
+      TELEGRAM_BOT_MODE: webhook
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?TELEGRAM_WEBHOOK_SECRET is required}
+      MAIL_HOST: ${MAIL_HOST:?MAIL_HOST is required}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:?MAIL_USERNAME is required}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?MAIL_PASSWORD is required}
+      NOTIFICATION_FROM_EMAIL: ${NOTIFICATION_FROM_EMAIL:?NOTIFICATION_FROM_EMAIL is required}
+      MAIL_HEALTH_ENABLED: "true"
+    depends_on:
+      notification-postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8083/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 45s }
+
+  places-service:
+    <<: *backend
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: places-service }
+    environment:
+      <<: *observability
+      PLACES_DB_URL: jdbc:postgresql://places-postgres:5432/owoke_places
+      PLACES_DB_USERNAME: owoke_places
+      PLACES_DB_PASSWORD: ${PLACES_DB_PASSWORD:?PLACES_DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: ${REDIS_USERNAME:?REDIS_USERNAME is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      TWO_GIS_ENABLED: ${TWO_GIS_ENABLED:-false}
+      TWO_GIS_API_KEY: ${TWO_GIS_API_KEY:-}
+    depends_on:
+      places-postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8084/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 45s }
+
+  identity-postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment: { POSTGRES_DB: owoke_identity, POSTGRES_USER: owoke_identity, POSTGRES_PASSWORD: "${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}" }
+    volumes: ["identity-postgres-data:/var/lib/postgresql/data"]
+    networks: [backend]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U owoke_identity -d owoke_identity"], interval: 10s, timeout: 5s, retries: 10 }
+
+  dating-postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment: { POSTGRES_DB: owoke_dating, POSTGRES_USER: owoke_dating, POSTGRES_PASSWORD: "${DATING_DB_PASSWORD:?DATING_DB_PASSWORD is required}" }
+    volumes: ["dating-postgres-data:/var/lib/postgresql/data"]
+    networks: [backend]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U owoke_dating -d owoke_dating"], interval: 10s, timeout: 5s, retries: 10 }
+
+  notification-postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment: { POSTGRES_DB: owoke_notification, POSTGRES_USER: owoke_notification, POSTGRES_PASSWORD: "${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}" }
+    volumes: ["notification-postgres-data:/var/lib/postgresql/data"]
+    networks: [backend]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U owoke_notification -d owoke_notification"], interval: 10s, timeout: 5s, retries: 10 }
+
+  places-postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment: { POSTGRES_DB: owoke_places, POSTGRES_USER: owoke_places, POSTGRES_PASSWORD: "${PLACES_DB_PASSWORD:?PLACES_DB_PASSWORD is required}" }
+    volumes: ["places-postgres-data:/var/lib/postgresql/data"]
+    networks: [backend]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U owoke_places -d owoke_places"], interval: 10s, timeout: 5s, retries: 10 }
+
+  redis:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--aclfile", "/run/secrets/users.acl"]
+    volumes:
+      - redis-data:/data
+      - ${REDIS_ACL_FILE:?REDIS_ACL_FILE is required}:/run/secrets/users.acl:ro
+    networks: [backend]
+    healthcheck: { test: ["CMD-SHELL", "redis-cli --user $${REDIS_USERNAME} -a $${REDIS_PASSWORD} --no-auth-warning ping"], interval: 10s, timeout: 5s, retries: 10 }
+    environment:
+      REDIS_USERNAME: ${REDIS_USERNAME:?REDIS_USERNAME is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+
+  kafka:
+    image: apache/kafka-native:4.1.0
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+    volumes: ["kafka-data:/var/lib/kafka/data"]
+    networks: [backend]
+    healthcheck: { test: ["CMD", "nc", "-z", "localhost", "9092"], interval: 10s, timeout: 5s, retries: 12 }
+
+  prometheus:
+    image: prom/prometheus:v3.13.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks: [backend]
+
+  grafana:
+    image: grafana/grafana:13.1.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/owoke.yml:ro
+    networks: [backend]
+    depends_on: [prometheus]
+
+networks:
+  edge:
+  backend:
+
+volumes:
+  caddy-data:
+  caddy-config:
+  identity-postgres-data:
+  dating-postgres-data:
+  notification-postgres-data:
+  places-postgres-data:
+  redis-data:
+  kafka-data:
+  prometheus-data:
+  grafana-data:

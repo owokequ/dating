@@ -9,6 +9,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:default}
       password: ${REDIS_PASSWORD:dating-redis}
       database: ${NOTIFICATION_REDIS_DATABASE:1}
       repositories:
@@ -60,7 +61,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:

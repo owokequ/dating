@@ -45,7 +45,7 @@ public class CookieBearerTokenResolver implements BearerTokenResolver {
                 || path.equals("/.well-known/jwks.json")
                 || path.equals("/api/v1/security/csrf")
                 || path.startsWith("/actuator/")
-                || path.startsWith("/api/v1/webhooks/telegram/")) {
+                || path.equals("/api/v1/telegram/webhook")) {
             return true;
         }
 

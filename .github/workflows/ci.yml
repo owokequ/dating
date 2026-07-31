@@ -1,0 +1,119 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Verify backend, Liquibase and architecture
+        run: ./mvnw --batch-mode clean verify
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web-app/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
+  contracts-and-compose:
+    runs-on: ubuntu-latest
+    env:
+      OWOKE_DOMAIN: owoke.example.com
+      OWOKE_JWT_ISSUER: https://owoke.example.com
+      OWOKE_JWT_KEY_ID: ci-key
+      OWOKE_JWT_PRIVATE_KEY_BASE64: ci-placeholder
+      OWOKE_JWT_PUBLIC_KEY_BASE64: ci-placeholder
+      IDENTITY_DB_PASSWORD: ci-password
+      DATING_DB_PASSWORD: ci-password
+      NOTIFICATION_DB_PASSWORD: ci-password
+      PLACES_DB_PASSWORD: ci-password
+      REDIS_USERNAME: owoke
+      REDIS_PASSWORD: ci-password
+      REDIS_ACL_FILE: ./infra/redis/users.acl.example
+      TELEGRAM_BOT_TOKEN: ci-placeholder
+      TELEGRAM_BOT_USERNAME: ci_bot
+      TELEGRAM_WEBHOOK_SECRET: ci-placeholder
+      TELEGRAM_OIDC_CLIENT_ID: ci-placeholder
+      TELEGRAM_OIDC_CLIENT_SECRET: ci-placeholder
+      MAIL_HOST: smtp.example.com
+      MAIL_USERNAME: ci
+      MAIL_PASSWORD: ci-password
+      NOTIFICATION_FROM_EMAIL: noreply@example.com
+      GRAFANA_ADMIN_PASSWORD: ci-password
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON contracts
+        run: for schema in contracts/events/*.json; do python -m json.tool "$schema" >/dev/null; done
+      - name: Validate Compose files
+        run: |
+          docker compose -f infra/compose.yaml config --quiet
+          docker compose -f infra/compose.prod.yaml config --quiet
+
+  docker-images:
+    needs: [backend, frontend, contracts-and-compose]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [api-gateway, identity-service, dating-service, notification-service, places-service]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/backend.Dockerfile
+          build-args: MODULE=${{ matrix.module }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.module }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.module }}
+
+  web-image:
+    needs: [frontend, contracts-and-compose]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/web.Dockerfile
+          push: false
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

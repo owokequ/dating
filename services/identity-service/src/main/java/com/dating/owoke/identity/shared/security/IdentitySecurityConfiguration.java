@@ -57,7 +57,9 @@ public class IdentitySecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health", "/actuator/health/**", "/.well-known/jwks.json").permitAll()
+                        .requestMatchers(
+                                "/actuator/health", "/actuator/health/**", "/actuator/prometheus", "/.well-known/jwks.json")
+                        .permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

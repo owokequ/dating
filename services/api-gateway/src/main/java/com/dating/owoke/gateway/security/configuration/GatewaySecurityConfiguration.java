@@ -58,11 +58,11 @@ public class GatewaySecurityConfiguration {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfRepository)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers("/api/v1/webhooks/telegram/**"))
+                        .ignoringRequestMatchers("/api/v1/telegram/webhook"))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                        .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers("/.well-known/jwks.json", "/api/v1/security/csrf").permitAll()
-                        .requestMatchers("/api/v1/auth/**", "/api/v1/webhooks/telegram/**").permitAll()
+                        .requestMatchers("/api/v1/auth/**", "/api/v1/telegram/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/places", "/api/v1/places/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/couple-invitations/*").permitAll()
                         .anyRequest().authenticated())

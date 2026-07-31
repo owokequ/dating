@@ -5,15 +5,42 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+
+import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class GatewaySecurityIntegrationTest {
+
+    private static final HttpServer NOTIFICATION_STUB = createNotificationStub();
+
+    @DynamicPropertySource
+    static void notificationService(DynamicPropertyRegistry registry) {
+        registry.add("NOTIFICATION_SERVICE_URL", () ->
+                "http://localhost:" + NOTIFICATION_STUB.getAddress().getPort());
+    }
+
+    @BeforeAll
+    static void startNotificationStub() {
+        NOTIFICATION_STUB.start();
+    }
+
+    @AfterAll
+    static void stopNotificationStub() {
+        NOTIFICATION_STUB.stop(0);
+    }
 
     private final MockMvc mockMvc;
 
@@ -41,5 +68,28 @@ class GatewaySecurityIntegrationTest {
                         .contentType("application/json")
                         .content("{\"email\":\"alice@example.com\",\"password\":\"StrongPassword123!\"}"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void telegramWebhookUsesThePublicCsrfExemptRoute() throws Exception {
+        mockMvc.perform(post("/api/v1/telegram/webhook")
+                        .header("X-Telegram-Bot-Api-Secret-Token", "test-secret")
+                        .contentType("application/json")
+                        .content("{\"update_id\":1}"))
+                .andExpect(status().isNoContent());
+    }
+
+    private static HttpServer createNotificationStub() {
+        try {
+            HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+            server.createContext("/api/v1/telegram/webhook", exchange -> {
+                exchange.getRequestBody().readAllBytes();
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+            });
+            return server;
+        } catch (IOException exception) {
+            throw new ExceptionInInitializerError(exception);
+        }
     }
 }

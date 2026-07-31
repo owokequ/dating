@@ -13,6 +13,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:default}
       password: ${REDIS_PASSWORD:dating-redis}
       database: ${PLACES_REDIS_DATABASE:2}
       repositories:
@@ -42,9 +43,9 @@ owoke:
     page-size: 50
     requests-per-second: 2
     queries:
-      - кафе
-      - ресторан
-      - развлечения
+      - "\u043a\u0430\u0444\u0435"
+      - "\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d"
+      - "\u0440\u0430\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f"
 
 management:
   endpoints:

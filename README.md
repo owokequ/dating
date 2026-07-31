@@ -105,3 +105,34 @@ shared/
 REST DTOs, Kafka event payloads and JPA entities are separate types. There is no
 shared Java domain module between services; event contracts live under
 `contracts/events` as JSON Schema documents.
+
+## Production-like deployment
+
+1. Copy `.env.production.example` to a secret file outside the repository and
+   replace every placeholder. Generate a dedicated RSA key pair for JWT signing.
+2. Copy `infra/redis/users.acl.example` outside the repository, replace its
+   password and point `REDIS_ACL_FILE` to the absolute file path.
+3. Point `OWOKE_DOMAIN` DNS records to the VPS and start the stack:
+
+```bash
+docker compose --env-file /opt/owoke/secrets/production.env \
+  -f infra/compose.prod.yaml up -d --build
+```
+
+Caddy obtains and renews TLS certificates automatically. Only ports 80/443 are
+published; databases, Kafka, Redis, Prometheus, Grafana and Java services remain
+inside the Docker network. Access Grafana for administration through an SSH
+tunnel rather than exposing it publicly.
+
+After deployment, register the Telegram webhook at the ordinary HTTPS endpoint
+`https://<domain>/api/v1/telegram/webhook` and send the configured
+`TELEGRAM_WEBHOOK_SECRET` as Telegram's `secret_token`. The bot buttons link to
+the website; no Telegram Mini App API is used.
+
+The bundled single-node Kafka listener is private to the one-host Docker network.
+When Kafka moves off-host or to a managed cluster, set the clients and broker to
+SASL/TLS before opening network access. One VPS, one Kafka broker and local
+PostgreSQL/Redis are production-like, not highly available; schedule encrypted
+volume snapshots and periodic restore drills before accepting real user data.
+The concrete PostgreSQL backup and isolated restore procedure is documented in
+`infra/backup/README.md`.

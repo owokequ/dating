@@ -5,6 +5,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:default}
       password: ${REDIS_PASSWORD:dating-redis}
   cloud:
     gateway:
@@ -22,7 +23,7 @@ spring:
             - id: notification-service
               uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
               predicates:
-                - Path=/api/v1/notifications/**,/api/v1/webhooks/telegram/**
+                - Path=/api/v1/notifications/**,/api/v1/telegram/webhook
             - id: places-service
               uri: ${PLACES_SERVICE_URL:http://localhost:8084}
               predicates:

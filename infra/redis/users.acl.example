@@ -1,0 +1,4 @@
+# Copy outside the repository, replace the password and set REDIS_ACL_FILE to that absolute path.
+# These prefixes match the keys currently owned by gateway, identity, notification and places.
+user default off
+user owoke on >replace-with-a-long-random-password ~gateway:* ~identity:* ~owoke:* +@all
