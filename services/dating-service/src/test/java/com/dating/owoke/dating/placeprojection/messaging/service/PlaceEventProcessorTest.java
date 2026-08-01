@@ -24,7 +24,7 @@ import tools.jackson.databind.ObjectMapper;
 class PlaceEventProcessorTest {
 
     @Test
-    void draftedEventIsStoredAsUnavailableProjection() {
+    void draftedEventIsStoredAsDraftProjection() {
         UUID eventId = UUID.randomUUID();
         UUID placeId = UUID.randomUUID();
         Instant occurredAt = Instant.parse("2026-08-01T10:00:00Z");
@@ -48,7 +48,7 @@ class PlaceEventProcessorTest {
                 .process("places.events.v1", "message");
 
         verify(projectionService).upsert(
-                placeId, "Draft", "Kazan", PlaceProjectionStatus.ARCHIVED, occurredAt);
+                placeId, "Draft", "Kazan", PlaceProjectionStatus.DRAFT, occurredAt);
         verify(inboxRepository).saveAndFlush(any());
     }
 }

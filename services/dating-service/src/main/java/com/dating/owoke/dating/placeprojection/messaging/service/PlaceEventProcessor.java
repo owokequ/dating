@@ -47,14 +47,11 @@ public class PlaceEventProcessor {
         }
 
         PlaceChangedV1 payload = objectMapper.treeToValue(envelope.payload(), PlaceChangedV1.class);
-        PlaceProjectionStatus status = "DRAFT".equals(payload.status())
-                ? PlaceProjectionStatus.ARCHIVED
-                : PlaceProjectionStatus.valueOf(payload.status());
         projectionService.upsert(
                 payload.placeId(),
                 payload.name(),
                 payload.address(),
-                status,
+                PlaceProjectionStatus.valueOf(payload.status()),
                 envelope.occurredAt());
         inboxRepository.saveAndFlush(new InboxEvent(
                 envelope.eventId(), envelope.eventType(), topic, clock.instant()));

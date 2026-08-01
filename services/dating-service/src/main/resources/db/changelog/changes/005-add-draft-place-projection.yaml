@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-add-draft-place-projection
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE place_projections DROP CONSTRAINT chk_place_projections_status;
+              ALTER TABLE place_projections ADD CONSTRAINT chk_place_projections_status
+                  CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'));

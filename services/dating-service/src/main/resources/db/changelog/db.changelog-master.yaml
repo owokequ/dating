@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/003-create-place-inbox.yaml
   - include:
       file: db/changelog/changes/004-add-place-media-snapshot.yaml
+  - include:
+      file: db/changelog/changes/005-add-draft-place-projection.yaml
