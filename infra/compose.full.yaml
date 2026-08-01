@@ -25,6 +25,7 @@ services:
       NOTIFICATION_SERVICE_URL: http://notification-service:8083
       PLACES_SERVICE_URL: http://places-service:8084
       MEDIA_SERVICE_URL: http://media-service:8085
+      EVENTS_SERVICE_URL: http://events-service:8086
       OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:-http://identity-service:8081}
       IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
       WEB_APP_ORIGIN: ${WEB_APP_ORIGIN:-http://localhost:5173}
@@ -165,6 +166,7 @@ services:
       TWO_GIS_API_KEY: ${TWO_GIS_API_KEY:-}
       TWO_GIS_PAGE_SIZE: ${TWO_GIS_PAGE_SIZE:-10}
       TWO_GIS_MAX_PAGES: ${TWO_GIS_MAX_PAGES:-1}
+      KUDAGO_PLACES_ENABLED: ${KUDAGO_PLACES_ENABLED:-true}
     ports:
       - "127.0.0.1:8084:8084"
     depends_on:
@@ -206,6 +208,40 @@ services:
       identity-service: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8085/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
+  events-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: events-service }
+    environment:
+      EVENTS_DB_URL: jdbc:postgresql://events-postgres:5432/owoke_events
+      EVENTS_DB_USERNAME: owoke_events
+      EVENTS_DB_PASSWORD: owoke_events
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: dating-redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:-http://identity-service:8081}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      KUDAGO_EVENTS_ENABLED: ${KUDAGO_EVENTS_ENABLED:-true}
+      KUDAGO_EVENTS_SCHEDULE_ENABLED: ${KUDAGO_EVENTS_SCHEDULE_ENABLED:-true}
+      KUDAGO_EVENTS_SYNC_DELAY: ${KUDAGO_EVENTS_SYNC_DELAY:-PT6H}
+      KUDAGO_EVENTS_HORIZON: ${KUDAGO_EVENTS_HORIZON:-P90D}
+    ports:
+      - "127.0.0.1:8086:8086"
+    depends_on:
+      events-postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8086/actuator/health/readiness"]
       interval: 5s
       timeout: 3s
       retries: 20

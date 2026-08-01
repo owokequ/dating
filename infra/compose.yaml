@@ -81,6 +81,22 @@ services:
     volumes:
       - media-postgres-data:/var/lib/postgresql/data
 
+  events-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: owoke_events
+      POSTGRES_USER: owoke_events
+      POSTGRES_PASSWORD: owoke_events
+    ports:
+      - "127.0.0.1:15437:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U owoke_events -d owoke_events"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - events-postgres-data:/var/lib/postgresql/data
+
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: ["server", "/data", "--console-address", ":9001"]
@@ -155,6 +171,7 @@ volumes:
   notification-postgres-data:
   places-postgres-data:
   media-postgres-data:
+  events-postgres-data:
   media-objects:
   redis-data:
   kafka-data:

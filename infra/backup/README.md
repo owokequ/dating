@@ -1,7 +1,7 @@
 # PostgreSQL backup and restore runbook
 
-Owoke keeps one PostgreSQL database per business service. Back up all four
-databases independently; a backup set is complete only when all four dumps from
+Owoke keeps one PostgreSQL database per business service. Back up all six
+databases independently; a backup set is complete only when all six dumps from
 the same maintenance window are present.
 
 ## Backup
@@ -21,6 +21,10 @@ docker compose --env-file /opt/owoke/secrets/production.env -f infra/compose.pro
   exec -T notification-postgres pg_dump -U owoke_notification -Fc owoke_notification >"$backup_dir/notification.dump"
 docker compose --env-file /opt/owoke/secrets/production.env -f infra/compose.prod.yaml \
   exec -T places-postgres pg_dump -U owoke_places -Fc owoke_places >"$backup_dir/places.dump"
+docker compose --env-file /opt/owoke/secrets/production.env -f infra/compose.prod.yaml \
+  exec -T media-postgres pg_dump -U owoke_media -Fc owoke_media >"$backup_dir/media.dump"
+docker compose --env-file /opt/owoke/secrets/production.env -f infra/compose.prod.yaml \
+  exec -T events-postgres pg_dump -U owoke_events -Fc owoke_events >"$backup_dir/events.dump"
 
 sha256sum "$backup_dir"/*.dump >"$backup_dir/SHA256SUMS"
 ```
@@ -37,7 +41,7 @@ databases and restore each dump with `pg_restore --clean --if-exists`. Then star
 the matching service versions against the restored databases and verify:
 
 1. Liquibase validation and application readiness are healthy.
-2. Identity users, couples, places and notifications have plausible row counts.
+2. Identity users, couples, places, events, media metadata and notifications have plausible row counts.
 3. A read-only end-to-end walkthrough can load an existing couple and date.
 4. The restored environment has no production SMTP, Telegram or Kafka access.
 

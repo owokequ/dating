@@ -26,6 +26,7 @@ class GatewaySecurityIntegrationTest {
 
     private static final HttpServer NOTIFICATION_STUB = createNotificationStub();
     private static final HttpServer MEDIA_STUB = createMediaStub();
+    private static final HttpServer EVENTS_STUB = createEventsStub();
 
     @DynamicPropertySource
     static void notificationService(DynamicPropertyRegistry registry) {
@@ -33,18 +34,22 @@ class GatewaySecurityIntegrationTest {
                 "http://localhost:" + NOTIFICATION_STUB.getAddress().getPort());
         registry.add("MEDIA_SERVICE_URL", () ->
                 "http://localhost:" + MEDIA_STUB.getAddress().getPort());
+        registry.add("EVENTS_SERVICE_URL", () ->
+                "http://localhost:" + EVENTS_STUB.getAddress().getPort());
     }
 
     @BeforeAll
-    static void startNotificationStub() {
+    static void startServiceStubs() {
         NOTIFICATION_STUB.start();
         MEDIA_STUB.start();
+        EVENTS_STUB.start();
     }
 
     @AfterAll
-    static void stopNotificationStub() {
+    static void stopServiceStubs() {
         NOTIFICATION_STUB.stop(0);
         MEDIA_STUB.stop(0);
+        EVENTS_STUB.stop(0);
     }
 
     private final MockMvc mockMvc;
@@ -70,6 +75,12 @@ class GatewaySecurityIntegrationTest {
     @Test
     void publicMediaCanBeReadWithoutAuthentication() throws Exception {
         mockMvc.perform(get("/api/v1/media/place-collections/00000000-0000-0000-0000-000000000001"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void publicEventsCanBeReadWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/events"))
                 .andExpect(status().isOk());
     }
 
@@ -108,6 +119,21 @@ class GatewaySecurityIntegrationTest {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
             server.createContext("/api/v1/media/", exchange -> {
+                exchange.getRequestBody().readAllBytes();
+                exchange.sendResponseHeaders(200, 0);
+                exchange.getResponseBody().close();
+                exchange.close();
+            });
+            return server;
+        } catch (IOException exception) {
+            throw new ExceptionInInitializerError(exception);
+        }
+    }
+
+    private static HttpServer createEventsStub() {
+        try {
+            HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+            server.createContext("/api/v1/events", exchange -> {
                 exchange.getRequestBody().readAllBytes();
                 exchange.sendResponseHeaders(200, 0);
                 exchange.getResponseBody().close();

@@ -28,6 +28,7 @@ $script:BackendServices = @(
     [pscustomobject]@{ Name = "notification-service"; Module = "notification-service"; Port = 8083; Color = "Yellow" },
     [pscustomobject]@{ Name = "places-service"; Module = "places-service"; Port = 8084; Color = "Green" },
     [pscustomobject]@{ Name = "media-service"; Module = "media-service"; Port = 8085; Color = "DarkMagenta" },
+    [pscustomobject]@{ Name = "events-service"; Module = "events-service"; Port = 8086; Color = "DarkCyan" },
     [pscustomobject]@{ Name = "api-gateway"; Module = "api-gateway"; Port = 8080; Color = "Blue" }
 )
 $script:ManagedNames = @(
@@ -36,6 +37,7 @@ $script:ManagedNames = @(
     "notification-service",
     "places-service",
     "media-service",
+    "events-service",
     "api-gateway",
     "web-app"
 )
@@ -245,12 +247,12 @@ function Test-PortListening {
 }
 
 function Assert-ApplicationPortsFree {
-    foreach ($port in @(5173, 8080, 8081, 8082, 8083, 8084, 8085)) {
+    foreach ($port in @(5173, 8080, 8081, 8082, 8083, 8084, 8085, 8086)) {
         if (Test-PortListening $port) {
             throw "Port $port is already occupied. Run '.\dev.cmd status' before starting Owoke."
         }
     }
-    Write-DevLog "check" "Application ports 5173 and 8080-8085 are free." "DarkGreen"
+    Write-DevLog "check" "Application ports 5173 and 8080-8086 are free." "DarkGreen"
 }
 
 function Get-ProcessRecordPath {
@@ -418,7 +420,7 @@ function Stop-ManagedProcess {
 }
 
 function Stop-ManagedProcesses {
-    foreach ($name in @("web-app", "api-gateway", "media-service", "places-service", "notification-service", "dating-service", "identity-service")) {
+    foreach ($name in @("web-app", "api-gateway", "events-service", "media-service", "places-service", "notification-service", "dating-service", "identity-service")) {
         Stop-ManagedProcess $name
     }
 }
@@ -468,7 +470,7 @@ function Start-HybridMode {
         Wait-ServiceReady $identity.Name $identity.Port
 
         $businessServices = @($script:BackendServices | Where-Object {
-            $_.Name -in @("dating-service", "notification-service", "places-service", "media-service")
+            $_.Name -in @("dating-service", "notification-service", "places-service", "media-service", "events-service")
         })
         foreach ($service in $businessServices) {
             [void] (Start-BackendService $service)
@@ -679,7 +681,7 @@ Owoke development launcher
   .\dev.cmd logs -Follow     Follow prefixed logs until Ctrl+C.
   .\dev.cmd help             Show this help.
 
-Copy .env.local.example to .env.local before enabling Telegram, OIDC or 2GIS.
+Copy .env.local.example to .env.local before enabling Telegram, OIDC, KudaGo or 2GIS.
 "@
 }
 

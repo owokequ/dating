@@ -13,6 +13,8 @@ Telegram Mini App. Telegram is used for optional OIDC login and notifications.
 | `services/dating-service` | 8082 | Couples, invitations and dates |
 | `services/notification-service` | 8083 | In-app, Telegram and email delivery |
 | `services/places-service` | 8084 | Kazan place catalog and providers |
+| `services/media-service` | 8085 | Uploaded and provider image metadata |
+| `services/events-service` | 8086 | KudaGo events, occurrences and moderation |
 
 Services own separate PostgreSQL databases and never read each other's tables.
 Cross-service facts are propagated through versioned Kafka events. Kafka is not
@@ -77,6 +79,8 @@ docker compose -f infra/compose.yaml ps
 | Dating PostgreSQL | `localhost:15433/owoke_dating` |
 | Notification PostgreSQL | `localhost:15434/owoke_notification` |
 | Places PostgreSQL | `localhost:15435/owoke_places` |
+| Media PostgreSQL | `localhost:15436/owoke_media` |
+| Events PostgreSQL | `localhost:15437/owoke_events` |
 | Redis | `localhost:6379` |
 | Kafka | `localhost:9092` |
 | Mailpit SMTP / UI | `localhost:1025` / `http://localhost:8025` |
@@ -123,6 +127,23 @@ Configuration keys are documented in `.env.local.example`. The launcher loads
 Existing shell variables take precedence. Spring Boot itself does not load env
 files automatically. Never commit real bot tokens, OIDC secrets, signing keys
 or provider API keys.
+
+### KudaGo places and events
+
+KudaGo does not require an API key. Local configuration enables a manual import
+of 30 Kazan places and an event catalog covering the next 90 days. The event
+scheduler refreshes the catalog every six hours; both imports can also be
+started from the corresponding admin pages:
+
+```text
+/admin/places
+/admin/events
+```
+
+Imported place cards stay in `DRAFT` until an administrator publishes them.
+Events with a valid venue become public automatically; incomplete events remain
+drafts. Public cards retain a direct source link required by the KudaGo license.
+2GIS remains available as an optional disabled provider.
 
 ### Gmail SMTP for external testing
 

@@ -21,3 +21,6 @@ scrape_configs:
   - job_name: media-service
     metrics_path: /actuator/prometheus
     static_configs: [{ targets: ["media-service:8085"] }]
+  - job_name: events-service
+    metrics_path: /actuator/prometheus
+    static_configs: [{ targets: ["events-service:8086"] }]

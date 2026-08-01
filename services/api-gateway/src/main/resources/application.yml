@@ -32,6 +32,10 @@ spring:
               uri: ${MEDIA_SERVICE_URL:http://localhost:8085}
               predicates:
                 - Path=/api/v1/media/**,/api/v1/admin/media/**
+            - id: events-service
+              uri: ${EVENTS_SERVICE_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/v1/events/**,/api/v1/admin/events/**
 
 owoke:
   gateway:

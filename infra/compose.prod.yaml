@@ -51,6 +51,7 @@ services:
       NOTIFICATION_SERVICE_URL: http://notification-service:8083
       PLACES_SERVICE_URL: http://places-service:8084
       MEDIA_SERVICE_URL: http://media-service:8085
+      EVENTS_SERVICE_URL: http://events-service:8086
       OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
       IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
       WEB_APP_ORIGIN: https://${OWOKE_DOMAIN:?OWOKE_DOMAIN is required}
@@ -180,6 +181,7 @@ services:
       TWO_GIS_API_KEY: ${TWO_GIS_API_KEY:-}
       TWO_GIS_PAGE_SIZE: ${TWO_GIS_PAGE_SIZE:-10}
       TWO_GIS_MAX_PAGES: ${TWO_GIS_MAX_PAGES:-1}
+      KUDAGO_PLACES_ENABLED: ${KUDAGO_PLACES_ENABLED:-true}
     depends_on:
       places-postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -213,6 +215,35 @@ services:
       kafka: { condition: service_healthy }
       identity-service: { condition: service_healthy }
     healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8085/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 45s }
+
+  events-service:
+    <<: *backend
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: events-service }
+    environment:
+      <<: *observability
+      EVENTS_DB_URL: jdbc:postgresql://events-postgres:5432/owoke_events
+      EVENTS_DB_USERNAME: owoke_events
+      EVENTS_DB_PASSWORD: ${EVENTS_DB_PASSWORD:?EVENTS_DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: ${REDIS_USERNAME:?REDIS_USERNAME is required}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      KUDAGO_EVENTS_ENABLED: ${KUDAGO_EVENTS_ENABLED:-true}
+      KUDAGO_EVENTS_SCHEDULE_ENABLED: ${KUDAGO_EVENTS_SCHEDULE_ENABLED:-true}
+      KUDAGO_EVENTS_SYNC_DELAY: ${KUDAGO_EVENTS_SYNC_DELAY:-PT6H}
+      KUDAGO_EVENTS_HORIZON: ${KUDAGO_EVENTS_HORIZON:-P90D}
+    depends_on:
+      events-postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8086/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 45s }
 
   identity-postgres:
     image: postgres:17-alpine
@@ -253,6 +284,14 @@ services:
     volumes: ["media-postgres-data:/var/lib/postgresql/data"]
     networks: [backend]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U owoke_media -d owoke_media"], interval: 10s, timeout: 5s, retries: 10 }
+
+  events-postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment: { POSTGRES_DB: owoke_events, POSTGRES_USER: owoke_events, POSTGRES_PASSWORD: "${EVENTS_DB_PASSWORD:?EVENTS_DB_PASSWORD is required}" }
+    volumes: ["events-postgres-data:/var/lib/postgresql/data"]
+    networks: [backend]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U owoke_events -d owoke_events"], interval: 10s, timeout: 5s, retries: 10 }
 
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -331,6 +370,7 @@ volumes:
   notification-postgres-data:
   places-postgres-data:
   media-postgres-data:
+  events-postgres-data:
   media-objects:
   redis-data:
   kafka-data:

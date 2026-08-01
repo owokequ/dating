@@ -64,6 +64,7 @@ public class GatewaySecurityConfiguration {
                         .requestMatchers("/.well-known/jwks.json", "/api/v1/security/csrf").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/api/v1/telegram/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/places", "/api/v1/places/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events", "/api/v1/events/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/media/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/couple-invitations/*").permitAll()
                         .anyRequest().authenticated())
