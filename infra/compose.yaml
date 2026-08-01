@@ -65,6 +65,39 @@ services:
     volumes:
       - places-postgres-data:/var/lib/postgresql/data
 
+  media-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: owoke_media
+      POSTGRES_USER: owoke_media
+      POSTGRES_PASSWORD: owoke_media
+    ports:
+      - "127.0.0.1:15436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U owoke_media -d owoke_media"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - media-postgres-data:/var/lib/postgresql/data
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: owoke-minio
+      MINIO_ROOT_PASSWORD: owoke-minio-secret
+    ports:
+      - "127.0.0.1:19000:9000"
+      - "127.0.0.1:19001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - media-objects:/data
+
   redis:
     image: redis:8.2.1
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "dating-redis"]
@@ -121,6 +154,8 @@ volumes:
   dating-postgres-data:
   notification-postgres-data:
   places-postgres-data:
+  media-postgres-data:
+  media-objects:
   redis-data:
   kafka-data:
   mailpit-data:

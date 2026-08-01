@@ -1,0 +1,111 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-media-schema
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE TABLE media_assets (
+                  id UUID PRIMARY KEY,
+                  source VARCHAR(32) NOT NULL,
+                  status VARCHAR(32) NOT NULL,
+                  original_filename VARCHAR(255),
+                  detected_content_type VARCHAR(100),
+                  original_size BIGINT NOT NULL,
+                  width INTEGER,
+                  height INTEGER,
+                  sha256 VARCHAR(64),
+                  uploaded_by UUID NOT NULL,
+                  created_at TIMESTAMPTZ NOT NULL,
+                  ready_at TIMESTAMPTZ,
+                  deleted_at TIMESTAMPTZ,
+                  purge_after TIMESTAMPTZ,
+                  purged_at TIMESTAMPTZ,
+                  version BIGINT NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_media_asset_source CHECK (source IN ('UPLOAD', 'REMOTE_URL', 'PLACEHOLDER')),
+                  CONSTRAINT ck_media_asset_status CHECK (status IN ('UPLOADED', 'PROCESSING', 'READY', 'FAILED', 'DELETED')),
+                  CONSTRAINT ck_media_asset_size CHECK (original_size >= 0),
+                  CONSTRAINT ck_media_asset_dimensions CHECK (
+                      (width IS NULL AND height IS NULL) OR (width > 0 AND height > 0))
+              );
+              CREATE INDEX idx_media_assets_processing ON media_assets(status, created_at);
+              CREATE INDEX idx_media_assets_purge ON media_assets(status, purge_after);
+
+              CREATE TABLE media_variants (
+                  id UUID PRIMARY KEY,
+                  media_asset_id UUID NOT NULL REFERENCES media_assets(id),
+                  variant VARCHAR(32) NOT NULL,
+                  object_key VARCHAR(500) NOT NULL,
+                  content_type VARCHAR(100) NOT NULL,
+                  width INTEGER NOT NULL,
+                  height INTEGER NOT NULL,
+                  size BIGINT NOT NULL,
+                  sha256 VARCHAR(64) NOT NULL,
+                  created_at TIMESTAMPTZ NOT NULL,
+                  CONSTRAINT uk_media_variant UNIQUE (media_asset_id, variant),
+                  CONSTRAINT uk_media_object_key UNIQUE (object_key),
+                  CONSTRAINT ck_media_variant CHECK (variant IN ('THUMBNAIL', 'CARD', 'DETAIL', 'TELEGRAM')),
+                  CONSTRAINT ck_media_variant_dimensions CHECK (width > 0 AND height > 0),
+                  CONSTRAINT ck_media_variant_size CHECK (size > 0)
+              );
+
+              CREATE TABLE media_collection_items (
+                  id UUID PRIMARY KEY,
+                  owner_type VARCHAR(32) NOT NULL,
+                  owner_id UUID NOT NULL,
+                  media_asset_id UUID NOT NULL REFERENCES media_assets(id),
+                  position INTEGER NOT NULL,
+                  cover BOOLEAN NOT NULL DEFAULT FALSE,
+                  created_at TIMESTAMPTZ NOT NULL,
+                  deleted_at TIMESTAMPTZ,
+                  version BIGINT NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_media_owner_type CHECK (owner_type IN ('PLACE')),
+                  CONSTRAINT ck_media_position CHECK (position >= 0)
+              );
+              CREATE UNIQUE INDEX uk_media_collection_asset_active
+                  ON media_collection_items(owner_type, owner_id, media_asset_id) WHERE deleted_at IS NULL;
+              CREATE UNIQUE INDEX uk_media_collection_position_active
+                  ON media_collection_items(owner_type, owner_id, position) WHERE deleted_at IS NULL;
+              CREATE UNIQUE INDEX uk_media_collection_cover_active
+                  ON media_collection_items(owner_type, owner_id) WHERE cover AND deleted_at IS NULL;
+
+              CREATE TABLE place_projections (
+                  place_id UUID PRIMARY KEY,
+                  status VARCHAR(32) NOT NULL,
+                  updated_at TIMESTAMPTZ NOT NULL,
+                  version BIGINT NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_media_place_status CHECK (status IN ('ACTIVE', 'ARCHIVED'))
+              );
+
+              CREATE TABLE inbox_events (
+                  event_id UUID PRIMARY KEY,
+                  event_type VARCHAR(128) NOT NULL,
+                  topic VARCHAR(128) NOT NULL,
+                  received_at TIMESTAMPTZ NOT NULL
+              );
+
+              CREATE TABLE failed_messages (
+                  id UUID PRIMARY KEY,
+                  event_id UUID,
+                  topic VARCHAR(128) NOT NULL,
+                  event_type VARCHAR(128),
+                  payload TEXT NOT NULL,
+                  error_message VARCHAR(1000) NOT NULL,
+                  failed_at TIMESTAMPTZ NOT NULL
+              );
+
+              CREATE TABLE outbox_events (
+                  id UUID PRIMARY KEY,
+                  topic VARCHAR(128) NOT NULL,
+                  event_key VARCHAR(128) NOT NULL,
+                  event_type VARCHAR(128) NOT NULL,
+                  payload JSONB NOT NULL,
+                  occurred_at TIMESTAMPTZ NOT NULL,
+                  published_at TIMESTAMPTZ,
+                  attempts INTEGER NOT NULL DEFAULT 0,
+                  next_attempt_at TIMESTAMPTZ NOT NULL,
+                  last_error VARCHAR(1000),
+                  version BIGINT NOT NULL DEFAULT 0
+              );
+              CREATE INDEX idx_media_outbox_pending ON outbox_events(published_at, next_attempt_at);

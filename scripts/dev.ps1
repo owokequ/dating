@@ -27,6 +27,7 @@ $script:BackendServices = @(
     [pscustomobject]@{ Name = "dating-service"; Module = "dating-service"; Port = 8082; Color = "Magenta" },
     [pscustomobject]@{ Name = "notification-service"; Module = "notification-service"; Port = 8083; Color = "Yellow" },
     [pscustomobject]@{ Name = "places-service"; Module = "places-service"; Port = 8084; Color = "Green" },
+    [pscustomobject]@{ Name = "media-service"; Module = "media-service"; Port = 8085; Color = "DarkMagenta" },
     [pscustomobject]@{ Name = "api-gateway"; Module = "api-gateway"; Port = 8080; Color = "Blue" }
 )
 $script:ManagedNames = @(
@@ -34,6 +35,7 @@ $script:ManagedNames = @(
     "dating-service",
     "notification-service",
     "places-service",
+    "media-service",
     "api-gateway",
     "web-app"
 )
@@ -243,12 +245,12 @@ function Test-PortListening {
 }
 
 function Assert-ApplicationPortsFree {
-    foreach ($port in @(5173, 8080, 8081, 8082, 8083, 8084)) {
+    foreach ($port in @(5173, 8080, 8081, 8082, 8083, 8084, 8085)) {
         if (Test-PortListening $port) {
             throw "Port $port is already occupied. Run '.\dev.cmd status' before starting Owoke."
         }
     }
-    Write-DevLog "check" "Application ports 5173 and 8080-8084 are free." "DarkGreen"
+    Write-DevLog "check" "Application ports 5173 and 8080-8085 are free." "DarkGreen"
 }
 
 function Get-ProcessRecordPath {
@@ -416,7 +418,7 @@ function Stop-ManagedProcess {
 }
 
 function Stop-ManagedProcesses {
-    foreach ($name in @("web-app", "api-gateway", "places-service", "notification-service", "dating-service", "identity-service")) {
+    foreach ($name in @("web-app", "api-gateway", "media-service", "places-service", "notification-service", "dating-service", "identity-service")) {
         Stop-ManagedProcess $name
     }
 }
@@ -450,7 +452,7 @@ function Start-HybridMode {
         Remove-Item -LiteralPath $script:StopSignal -Force
     }
 
-    Write-DevLog "docker" "Starting PostgreSQL, Redis, Kafka and Mailpit." "Blue"
+    Write-DevLog "docker" "Starting PostgreSQL, Redis, Kafka, MinIO and Mailpit." "Blue"
     Set-LastRunMode "hybrid"
     try {
         Invoke-Compose @("up", "-d", "--wait", "--remove-orphans")
@@ -466,7 +468,7 @@ function Start-HybridMode {
         Wait-ServiceReady $identity.Name $identity.Port
 
         $businessServices = @($script:BackendServices | Where-Object {
-            $_.Name -in @("dating-service", "notification-service", "places-service")
+            $_.Name -in @("dating-service", "notification-service", "places-service", "media-service")
         })
         foreach ($service in $businessServices) {
             [void] (Start-BackendService $service)

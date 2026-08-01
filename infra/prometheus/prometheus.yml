@@ -18,3 +18,6 @@ scrape_configs:
   - job_name: places-service
     metrics_path: /actuator/prometheus
     static_configs: [{ targets: ["places-service:8084"] }]
+  - job_name: media-service
+    metrics_path: /actuator/prometheus
+    static_configs: [{ targets: ["media-service:8085"] }]

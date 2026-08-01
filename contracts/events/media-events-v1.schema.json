@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/media-events-v1.schema.json",
+  "title": "Media events V1 payloads",
+  "oneOf": [
+    {"$ref": "#/$defs/mediaAssetReady"},
+    {"$ref": "#/$defs/mediaCollectionChanged"},
+    {"$ref": "#/$defs/mediaAssetDeleted"}
+  ],
+  "$defs": {
+    "mediaAssetReady": {
+      "title": "MediaAssetReadyV1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mediaId", "ownerType", "ownerId", "sha256", "variants"],
+      "properties": {
+        "mediaId": {"type": "string", "format": "uuid"},
+        "ownerType": {"const": "PLACE"},
+        "ownerId": {"type": "string", "format": "uuid"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "variants": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {"$ref": "#/$defs/variant"}
+        }
+      }
+    },
+    "mediaCollectionChanged": {
+      "title": "MediaCollectionChangedV1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ownerType", "ownerId", "orderedMediaIds", "collectionVersion"],
+      "properties": {
+        "ownerType": {"const": "PLACE"},
+        "ownerId": {"type": "string", "format": "uuid"},
+        "coverMediaId": {"type": ["string", "null"], "format": "uuid"},
+        "orderedMediaIds": {
+          "type": "array",
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"type": "string", "format": "uuid"}
+        },
+        "collectionVersion": {"type": "integer", "minimum": 0}
+      }
+    },
+    "mediaAssetDeleted": {
+      "title": "MediaAssetDeletedV1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mediaId", "ownerType", "ownerId", "deletedAt", "purgeAfter"],
+      "properties": {
+        "mediaId": {"type": "string", "format": "uuid"},
+        "ownerType": {"const": "PLACE"},
+        "ownerId": {"type": "string", "format": "uuid"},
+        "deletedAt": {"type": "string", "format": "date-time"},
+        "purgeAfter": {"type": "string", "format": "date-time"}
+      }
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "contentType", "width", "height", "size", "sha256"],
+      "properties": {
+        "name": {"enum": ["THUMBNAIL", "CARD", "DETAIL", "TELEGRAM"]},
+        "contentType": {"type": "string", "minLength": 1},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "size": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    }
+  }
+}

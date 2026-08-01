@@ -8,6 +8,9 @@ not shared between services. Producers and consumers own their local DTOs.
 Telegram. `dating.events.v1` carries the resulting domain status event and a
 `DateProposalDecisionResultV1` acknowledgement for the actor.
 
+`media.events.v1` carries media readiness, collection ordering and soft-delete
+metadata. Binary image content is intentionally never placed into Kafka.
+
 Compatibility rules:
 
 - existing required fields are never removed or renamed;

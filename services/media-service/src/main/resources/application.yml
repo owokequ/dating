@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: media-service
+  datasource:
+    url: ${MEDIA_DB_URL:jdbc:postgresql://127.0.0.1:15436/owoke_media}
+    username: ${MEDIA_DB_USERNAME:owoke_media}
+    password: ${MEDIA_DB_PASSWORD:owoke_media}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:127.0.0.1:9092}
+    consumer:
+      group-id: media-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  servlet:
+    multipart:
+      max-file-size: ${MEDIA_MAX_FILE_SIZE:12MB}
+      max-request-size: ${MEDIA_MAX_REQUEST_SIZE:13MB}
+
+server:
+  port: ${MEDIA_SERVICE_PORT:8085}
+
+owoke:
+  security:
+    issuer: ${OWOKE_JWT_ISSUER:http://127.0.0.1:8081}
+    audience: ${OWOKE_JWT_AUDIENCE:owoke-api}
+    jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://127.0.0.1:8081/.well-known/jwks.json}
+  media:
+    storage:
+      endpoint: ${MEDIA_S3_ENDPOINT:http://127.0.0.1:19000}
+      region: ${MEDIA_S3_REGION:us-east-1}
+      bucket: ${MEDIA_S3_BUCKET:owoke-media}
+      access-key: ${MEDIA_S3_ACCESS_KEY:owoke-minio}
+      secret-key: ${MEDIA_S3_SECRET_KEY:owoke-minio-secret}
+      path-style-access: ${MEDIA_S3_PATH_STYLE_ACCESS:true}
+    processing:
+      maximum-source-bytes: ${MEDIA_MAX_SOURCE_BYTES:12582912}
+      maximum-pixels: ${MEDIA_MAX_PIXELS:40000000}
+      purge-delay: ${MEDIA_PURGE_DELAY:30d}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true

@@ -50,6 +50,7 @@ services:
       DATING_SERVICE_URL: http://dating-service:8082
       NOTIFICATION_SERVICE_URL: http://notification-service:8083
       PLACES_SERVICE_URL: http://places-service:8084
+      MEDIA_SERVICE_URL: http://media-service:8085
       OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
       IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
       WEB_APP_ORIGIN: https://${OWOKE_DOMAIN:?OWOKE_DOMAIN is required}
@@ -175,6 +176,33 @@ services:
       identity-service: { condition: service_healthy }
     healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8084/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 45s }
 
+  media-service:
+    <<: *backend
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: media-service }
+    environment:
+      <<: *observability
+      MEDIA_DB_URL: jdbc:postgresql://media-postgres:5432/owoke_media
+      MEDIA_DB_USERNAME: owoke_media
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?MEDIA_DB_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      MEDIA_S3_ENDPOINT: http://minio:9000
+      MEDIA_S3_REGION: ${MEDIA_S3_REGION:-us-east-1}
+      MEDIA_S3_BUCKET: ${MEDIA_S3_BUCKET:-owoke-media}
+      MEDIA_S3_ACCESS_KEY: ${MEDIA_S3_ACCESS_KEY:?MEDIA_S3_ACCESS_KEY is required}
+      MEDIA_S3_SECRET_KEY: ${MEDIA_S3_SECRET_KEY:?MEDIA_S3_SECRET_KEY is required}
+      MEDIA_S3_PATH_STYLE_ACCESS: "true"
+    depends_on:
+      media-postgres: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8085/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 45s }
+
   identity-postgres:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -206,6 +234,25 @@ services:
     volumes: ["places-postgres-data:/var/lib/postgresql/data"]
     networks: [backend]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U owoke_places -d owoke_places"], interval: 10s, timeout: 5s, retries: 10 }
+
+  media-postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment: { POSTGRES_DB: owoke_media, POSTGRES_USER: owoke_media, POSTGRES_PASSWORD: "${MEDIA_DB_PASSWORD:?MEDIA_DB_PASSWORD is required}" }
+    volumes: ["media-postgres-data:/var/lib/postgresql/data"]
+    networks: [backend]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U owoke_media -d owoke_media"], interval: 10s, timeout: 5s, retries: 10 }
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ${MEDIA_S3_ACCESS_KEY:?MEDIA_S3_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${MEDIA_S3_SECRET_KEY:?MEDIA_S3_SECRET_KEY is required}
+    volumes: ["media-objects:/data"]
+    networks: [backend]
+    healthcheck: { test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"], interval: 10s, timeout: 5s, retries: 12 }
 
   redis:
     image: redis:8.2-alpine
@@ -272,6 +319,8 @@ volumes:
   dating-postgres-data:
   notification-postgres-data:
   places-postgres-data:
+  media-postgres-data:
+  media-objects:
   redis-data:
   kafka-data:
   prometheus-data:

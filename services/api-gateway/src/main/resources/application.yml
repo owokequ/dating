@@ -28,6 +28,10 @@ spring:
               uri: ${PLACES_SERVICE_URL:http://localhost:8084}
               predicates:
                 - Path=/api/v1/places/**,/api/v1/admin/places/**
+            - id: media-service
+              uri: ${MEDIA_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/media/**,/api/v1/admin/media/**
 
 owoke:
   gateway:
