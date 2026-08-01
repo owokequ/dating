@@ -52,6 +52,7 @@ public class CookieBearerTokenResolver implements BearerTokenResolver {
         if (HttpMethod.GET.matches(request.getMethod())) {
             return path.startsWith("/api/v1/places/")
                     || path.equals("/api/v1/places")
+                    || path.startsWith("/api/v1/media/")
                     || path.startsWith("/api/v1/couple-invitations/");
         }
 

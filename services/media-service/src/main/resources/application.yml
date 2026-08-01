@@ -31,9 +31,9 @@ server:
 
 owoke:
   security:
-    issuer: ${OWOKE_JWT_ISSUER:http://127.0.0.1:8081}
+    issuer: ${OWOKE_JWT_ISSUER:http://localhost:8081}
     audience: ${OWOKE_JWT_AUDIENCE:owoke-api}
-    jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://127.0.0.1:8081/.well-known/jwks.json}
+    jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8081/.well-known/jwks.json}
   media:
     storage:
       endpoint: ${MEDIA_S3_ENDPOINT:http://127.0.0.1:19000}

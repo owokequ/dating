@@ -25,21 +25,26 @@ import org.springframework.test.context.DynamicPropertySource;
 class GatewaySecurityIntegrationTest {
 
     private static final HttpServer NOTIFICATION_STUB = createNotificationStub();
+    private static final HttpServer MEDIA_STUB = createMediaStub();
 
     @DynamicPropertySource
     static void notificationService(DynamicPropertyRegistry registry) {
         registry.add("NOTIFICATION_SERVICE_URL", () ->
                 "http://localhost:" + NOTIFICATION_STUB.getAddress().getPort());
+        registry.add("MEDIA_SERVICE_URL", () ->
+                "http://localhost:" + MEDIA_STUB.getAddress().getPort());
     }
 
     @BeforeAll
     static void startNotificationStub() {
         NOTIFICATION_STUB.start();
+        MEDIA_STUB.start();
     }
 
     @AfterAll
     static void stopNotificationStub() {
         NOTIFICATION_STUB.stop(0);
+        MEDIA_STUB.stop(0);
     }
 
     private final MockMvc mockMvc;
@@ -60,6 +65,12 @@ class GatewaySecurityIntegrationTest {
     void protectedEndpointRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void publicMediaCanBeReadWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/media/place-collections/00000000-0000-0000-0000-000000000001"))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -85,6 +96,21 @@ class GatewaySecurityIntegrationTest {
             server.createContext("/api/v1/telegram/webhook", exchange -> {
                 exchange.getRequestBody().readAllBytes();
                 exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+            });
+            return server;
+        } catch (IOException exception) {
+            throw new ExceptionInInitializerError(exception);
+        }
+    }
+
+    private static HttpServer createMediaStub() {
+        try {
+            HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+            server.createContext("/api/v1/media/", exchange -> {
+                exchange.getRequestBody().readAllBytes();
+                exchange.sendResponseHeaders(200, 0);
+                exchange.getResponseBody().close();
                 exchange.close();
             });
             return server;
