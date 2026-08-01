@@ -124,6 +124,33 @@ Existing shell variables take precedence. Spring Boot itself does not load env
 files automatically. Never commit real bot tokens, OIDC secrets, signing keys
 or provider API keys.
 
+### Gmail SMTP for external testing
+
+Mailpit remains the safe local default. To deliver real messages through a
+personal Gmail account, enable Google 2-Step Verification, create a dedicated
+App Password named `Owoke local`, and replace only the mail block in the ignored
+`.env.local` file:
+
+```dotenv
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-complete-address@gmail.com
+MAIL_PASSWORD=your-16-character-app-password-without-spaces
+MAIL_SMTP_AUTH=true
+MAIL_SMTP_STARTTLS_ENABLE=true
+MAIL_SMTP_STARTTLS_REQUIRED=true
+MAIL_SMTP_CONNECTION_TIMEOUT=5000
+MAIL_SMTP_READ_TIMEOUT=5000
+MAIL_SMTP_WRITE_TIMEOUT=5000
+NOTIFICATION_FROM_EMAIL=your-complete-address@gmail.com
+MAIL_HEALTH_ENABLED=true
+```
+
+Restart Owoke after changing the file. The App Password is an application
+secret: do not paste it into source code, commit it, or reuse the normal Google
+Account password. For public production traffic, use a transactional email
+provider or Google Workspace SMTP relay instead of a personal Gmail mailbox.
+
 ## Package convention
 
 Business code is grouped by feature and then by responsibility:
