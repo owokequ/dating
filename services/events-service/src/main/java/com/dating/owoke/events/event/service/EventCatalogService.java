@@ -140,7 +140,11 @@ public class EventCatalogService {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             predicates.add(cb.equal(root.get("status"), EventStatus.ACTIVE));
             predicates.add(cb.equal(occurrence.get("status"), OccurrenceStatus.ACTIVE));
-            predicates.add(cb.greaterThan(occurrence.get("startsAt"), from));
+            predicates.add(cb.or(
+                    cb.greaterThan(occurrence.get("startsAt"), from),
+                    cb.and(
+                            cb.isNotNull(occurrence.get("endsAt")),
+                            cb.greaterThan(occurrence.get("endsAt"), from))));
             if (to != null) predicates.add(cb.lessThanOrEqualTo(occurrence.get("startsAt"), to));
             if (free != null) predicates.add(cb.equal(root.get("free"), free));
             if (category != null && category.matches("[a-z-]{1,64}")) {
