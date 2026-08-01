@@ -59,6 +59,7 @@ form small { color: #a33b4f; min-height: .35rem; }
 .message { padding: .75rem 1rem; border-radius: 12px; font-size: .88rem; }
 .message.error { color: #8e2736; background: #f9e1e4; }
 .message.success { color: #47613e; background: #e7f0df; }
+.message.warning { color: #745b1e; background: #f8ebc9; }
 .loading, .empty-state { text-align: center; color: var(--muted); }
 .empty-state h2 { color: var(--ink); }
 .hero { min-height: 65vh; display: grid; grid-template-columns: 1.35fr .65fr; gap: 5rem; align-items: center; }
@@ -126,6 +127,15 @@ dt { color: var(--muted); } dd { margin: 0; }
 .media-admin-item img, .media-processing { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: grid; place-items: center; color: var(--muted); }
 .media-admin-actions { display: flex; flex-wrap: wrap; gap: .35rem; padding: .55rem; }
 button.media-icon { width: 31px; height: 31px; padding: 0; }
+.place-image-picker { border: 1px solid var(--line); border-radius: 16px; padding: 1rem; margin: .35rem 0; min-width: 0; }
+.place-image-picker-heading { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
+.place-image-picker-heading > div { display: grid; gap: .2rem; }
+.place-image-picker-heading small { display: block; }
+.place-image-preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin-top: .9rem; }
+.place-image-preview { position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.place-image-preview img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.place-image-preview > span { position: absolute; top: .45rem; left: .45rem; padding: .25rem .5rem; border-radius: 999px; color: white; background: rgba(47, 41, 38, .78); font-size: .68rem; font-weight: 800; }
+.place-image-preview > div { display: flex; justify-content: flex-end; gap: .3rem; padding: .45rem; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .place-details { max-width: 980px; margin: 0 auto; }
 .place-detail-hero { position: relative; min-height: 520px; overflow: hidden; border-radius: 34px; background: #e7ddd5; box-shadow: var(--shadow); }

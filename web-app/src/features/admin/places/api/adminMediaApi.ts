@@ -1,4 +1,4 @@
-import { apiRequest, jsonBody } from '../../../../shared/api/http'
+import { ApiError, apiRequest, jsonBody } from '../../../../shared/api/http'
 
 export type MediaItem = {
   mediaId: string
@@ -28,6 +28,20 @@ export const uploadPlaceImage = (placeId: string, file: File) => {
     `/api/v1/admin/media/place-collections/${placeId}/assets`,
     { method: 'POST', body },
   )
+}
+
+export async function uploadPlaceImageWhenProjectionIsReady(placeId: string, file: File): Promise<void> {
+  const maximumAttempts = 8
+  for (let attempt = 1; attempt <= maximumAttempts; attempt++) {
+    try {
+      await uploadPlaceImage(placeId, file)
+      return
+    } catch (error) {
+      const projectionIsNotReady = error instanceof ApiError && error.status === 404
+      if (!projectionIsNotReady || attempt === maximumAttempts) throw error
+      await new Promise((resolve) => window.setTimeout(resolve, Math.min(250 * 2 ** (attempt - 1), 1000)))
+    }
+  }
 }
 
 export const reorderPlaceMedia = (placeId: string, coverMediaId: string, orderedMediaIds: string[]) =>
