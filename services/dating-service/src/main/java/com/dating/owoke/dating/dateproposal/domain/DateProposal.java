@@ -38,6 +38,8 @@ public class DateProposal {
     private String placeNameSnapshot;
     @Column(name = "place_address_snapshot", nullable = false, updatable = false, length = 500)
     private String placeAddressSnapshot;
+    @Column(name = "place_cover_media_id_snapshot", updatable = false)
+    private UUID placeCoverMediaIdSnapshot;
     @Column(updatable = false, length = 1000)
     private String description;
     @Enumerated(EnumType.STRING)
@@ -66,6 +68,7 @@ public class DateProposal {
             UUID placeId,
             String placeNameSnapshot,
             String placeAddressSnapshot,
+            UUID placeCoverMediaIdSnapshot,
             String description,
             Instant now
     ) {
@@ -81,6 +84,7 @@ public class DateProposal {
         this.placeId = Objects.requireNonNull(placeId);
         this.placeNameSnapshot = requireText(placeNameSnapshot, 200, "placeNameSnapshot");
         this.placeAddressSnapshot = requireText(placeAddressSnapshot, 500, "placeAddressSnapshot");
+        this.placeCoverMediaIdSnapshot = placeCoverMediaIdSnapshot;
         this.description = normalizeDescription(description);
         this.status = DateProposalStatus.PENDING_CONFIRMATION;
         this.createdAt = Objects.requireNonNull(now);
@@ -162,6 +166,10 @@ public class DateProposal {
 
     public String getPlaceAddressSnapshot() {
         return placeAddressSnapshot;
+    }
+
+    public UUID getPlaceCoverMediaIdSnapshot() {
+        return placeCoverMediaIdSnapshot;
     }
 
     public String getDescription() {

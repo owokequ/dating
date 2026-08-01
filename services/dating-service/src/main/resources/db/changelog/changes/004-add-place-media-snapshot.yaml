@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-add-place-media-snapshot
+      author: codex
+      changes:
+        - addColumn:
+            tableName: place_projections
+            columns:
+              - column: { name: cover_media_id, type: uuid }
+              - column: { name: media_revision, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+        - addColumn:
+            tableName: date_proposals
+            columns:
+              - column: { name: place_cover_media_id_snapshot, type: uuid }

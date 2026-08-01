@@ -32,6 +32,12 @@ public class PlaceProjection {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "cover_media_id")
+    private UUID coverMediaId;
+
+    @Column(name = "media_revision", nullable = false)
+    private long mediaRevision;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -64,6 +70,15 @@ public class PlaceProjection {
         return status == PlaceProjectionStatus.ACTIVE;
     }
 
+    public boolean updateMediaIfNewer(UUID coverMediaId, long mediaRevision) {
+        if (mediaRevision <= this.mediaRevision) {
+            return false;
+        }
+        this.coverMediaId = coverMediaId;
+        this.mediaRevision = mediaRevision;
+        return true;
+    }
+
     public UUID getId() {
         return id;
     }
@@ -82,6 +97,14 @@ public class PlaceProjection {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public UUID getCoverMediaId() {
+        return coverMediaId;
+    }
+
+    public long getMediaRevision() {
+        return mediaRevision;
     }
 
     private static String requireText(String value, String field, int maxLength) {

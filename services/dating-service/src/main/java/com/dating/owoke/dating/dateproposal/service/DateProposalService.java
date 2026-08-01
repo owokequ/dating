@@ -20,8 +20,8 @@ import com.dating.owoke.dating.placeprojection.repository.PlaceProjectionReposit
 import com.dating.owoke.dating.shared.exception.BusinessConflictException;
 import com.dating.owoke.dating.shared.exception.ResourceNotFoundException;
 import com.dating.owoke.dating.shared.idempotency.service.IdempotencyService;
-import com.dating.owoke.dating.shared.messaging.event.DateProposalCreatedV1;
-import com.dating.owoke.dating.shared.messaging.event.DateProposalStatusChangedV1;
+import com.dating.owoke.dating.shared.messaging.event.DateProposalCreatedV2;
+import com.dating.owoke.dating.shared.messaging.event.DateProposalStatusChangedV2;
 import com.dating.owoke.dating.shared.messaging.service.OutboxService;
 
 @Service
@@ -92,13 +92,15 @@ public class DateProposalService {
                 placeId,
                 place.getName(),
                 place.getAddress(),
+                place.getCoverMediaId(),
                 description,
                 now));
         outboxService.enqueue(
                 DATING_EVENTS_TOPIC,
                 activeCouple.couple().getId().toString(),
-                "DateProposalCreatedV1",
-                new DateProposalCreatedV1(
+                "DateProposalCreatedV2",
+                2,
+                new DateProposalCreatedV2(
                         proposal.getId(),
                         proposal.getCoupleId(),
                         proposal.getProposerId(),
@@ -108,6 +110,7 @@ public class DateProposalService {
                         proposal.getPlaceId(),
                         proposal.getPlaceNameSnapshot(),
                         proposal.getPlaceAddressSnapshot(),
+                        proposal.getPlaceCoverMediaIdSnapshot(),
                         proposal.getDescription()));
         idempotencyService.remember(
                 userId, "CREATE_DATE_PROPOSAL", idempotencyKey, requestMaterial, proposal.getId());
@@ -168,6 +171,7 @@ public class DateProposalService {
                 DATING_EVENTS_TOPIC,
                 proposal.getCoupleId().toString(),
                 action.eventType,
+                2,
                 statusEvent(proposal, userId, now));
         idempotencyService.remember(
                 userId, action.operation, idempotencyKey, requestMaterial, proposal.getId());
@@ -195,8 +199,8 @@ public class DateProposalService {
         return new ActiveCouple(couple, members);
     }
 
-    private static DateProposalStatusChangedV1 statusEvent(DateProposal proposal, UUID userId, Instant now) {
-        return new DateProposalStatusChangedV1(
+    private static DateProposalStatusChangedV2 statusEvent(DateProposal proposal, UUID userId, Instant now) {
+        return new DateProposalStatusChangedV2(
                 proposal.getId(),
                 proposal.getCoupleId(),
                 proposal.getProposerId(),
@@ -208,6 +212,7 @@ public class DateProposalService {
                 proposal.getTimezone(),
                 proposal.getPlaceNameSnapshot(),
                 proposal.getPlaceAddressSnapshot(),
+                proposal.getPlaceCoverMediaIdSnapshot(),
                 proposal.getDescription());
     }
 
@@ -215,7 +220,8 @@ public class DateProposalService {
         return new DateProposalDetails(
                 proposal.getId(), proposal.getCoupleId(), proposal.getProposerId(), proposal.getResponderId(),
                 proposal.getScheduledAt(), proposal.getTimezone(), proposal.getPlaceId(),
-                proposal.getPlaceNameSnapshot(), proposal.getPlaceAddressSnapshot(), proposal.getDescription(),
+                proposal.getPlaceNameSnapshot(), proposal.getPlaceAddressSnapshot(),
+                proposal.getPlaceCoverMediaIdSnapshot(), proposal.getDescription(),
                 proposal.getStatus(), proposal.getCreatedAt(), proposal.getDecidedAt(), proposal.getCancelledAt(),
                 proposal.getVersion());
     }
@@ -228,9 +234,9 @@ public class DateProposalService {
     }
 
     private enum Action {
-        ACCEPT("ACCEPT_DATE_PROPOSAL", "DateProposalAcceptedV1"),
-        DECLINE("DECLINE_DATE_PROPOSAL", "DateProposalDeclinedV1"),
-        CANCEL("CANCEL_DATE_PROPOSAL", "DateProposalCancelledV1");
+        ACCEPT("ACCEPT_DATE_PROPOSAL", "DateProposalAcceptedV2"),
+        DECLINE("DECLINE_DATE_PROPOSAL", "DateProposalDeclinedV2"),
+        CANCEL("CANCEL_DATE_PROPOSAL", "DateProposalCancelledV2");
 
         private final String operation;
         private final String eventType;

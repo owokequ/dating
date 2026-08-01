@@ -15,6 +15,7 @@ public record DateProposalResponse(
         UUID placeId,
         String placeName,
         String placeAddress,
+        UUID placeCoverMediaId,
         String description,
         DateProposalStatus status,
         Instant createdAt,

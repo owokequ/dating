@@ -1,0 +1,44 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-media-projection
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE TABLE place_media_collections (
+                  place_id UUID PRIMARY KEY REFERENCES places(id) ON DELETE CASCADE,
+                  revision BIGINT NOT NULL,
+                  updated_at TIMESTAMPTZ NOT NULL
+              );
+
+              CREATE TABLE place_media_projection_items (
+                  id UUID PRIMARY KEY,
+                  place_id UUID NOT NULL REFERENCES places(id) ON DELETE CASCADE,
+                  media_id UUID NOT NULL,
+                  position INTEGER NOT NULL,
+                  cover BOOLEAN NOT NULL,
+                  created_at TIMESTAMPTZ NOT NULL,
+                  CONSTRAINT uk_place_media_projection_asset UNIQUE (place_id, media_id),
+                  CONSTRAINT uk_place_media_projection_position UNIQUE (place_id, position),
+                  CONSTRAINT ck_place_media_projection_position CHECK (position >= 0)
+              );
+              CREATE UNIQUE INDEX uk_place_media_projection_cover
+                  ON place_media_projection_items(place_id) WHERE cover;
+
+              CREATE TABLE inbox_events (
+                  event_id UUID PRIMARY KEY,
+                  event_type VARCHAR(128) NOT NULL,
+                  topic VARCHAR(128) NOT NULL,
+                  received_at TIMESTAMPTZ NOT NULL
+              );
+
+              CREATE TABLE failed_messages (
+                  id UUID PRIMARY KEY,
+                  event_id UUID,
+                  topic VARCHAR(128) NOT NULL,
+                  event_type VARCHAR(128),
+                  payload TEXT NOT NULL,
+                  error_message VARCHAR(1000) NOT NULL,
+                  failed_at TIMESTAMPTZ NOT NULL
+              );

@@ -34,4 +34,12 @@ public class PlaceProjectionService {
             repository.save(place);
         }
     }
+
+    @Transactional
+    public void updateMedia(UUID placeId, UUID coverMediaId, long mediaRevision) {
+        PlaceProjection place = repository.findById(placeId).orElse(null);
+        if (place != null && place.updateMediaIfNewer(coverMediaId, mediaRevision)) {
+            repository.save(place);
+        }
+    }
 }

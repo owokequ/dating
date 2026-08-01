@@ -183,10 +183,15 @@ class CoupleInvitationIntegrationTest {
         activateCouple(ownerId, partnerId);
         UUID placeId = UUID.randomUUID();
         insertPlace(placeId, "Original cafe", "Kazan, Original street 1", "ACTIVE");
+        UUID coverMediaId = UUID.randomUUID();
+        jdbcTemplate.update(
+                "UPDATE place_projections SET cover_media_id = ?, media_revision = 1 WHERE id = ?",
+                coverMediaId, placeId);
 
         DateProposalResponse proposal = createProposal(
                 ownerId, placeId, "create-proposal-1", Instant.now().plusSeconds(86_400), "Dinner");
         assertThat(proposal.status().name()).isEqualTo("PENDING_CONFIRMATION");
+        assertThat(proposal.placeCoverMediaId()).isEqualTo(coverMediaId);
 
         mockMvc.perform(post("/api/v1/date-proposals/{id}/accept", proposal.id())
                         .header("Idempotency-Key", "owner-cannot-accept")
@@ -210,10 +215,11 @@ class CoupleInvitationIntegrationTest {
         mockMvc.perform(get("/api/v1/date-proposals/{id}", proposal.id()).with(user(ownerId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.placeName").value("Original cafe"))
-                .andExpect(jsonPath("$.placeAddress").value("Kazan, Original street 1"));
+                .andExpect(jsonPath("$.placeAddress").value("Kazan, Original street 1"))
+                .andExpect(jsonPath("$.placeCoverMediaId").value(coverMediaId.toString()));
 
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV1'", Integer.class))
+                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV2'", Integer.class))
                 .isEqualTo(1);
     }
 
@@ -267,7 +273,7 @@ class CoupleInvitationIntegrationTest {
                 "SELECT count(*) FROM inbox_events WHERE event_id = ?", Integer.class, commandId))
                 .isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV1'", Integer.class))
+                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV2'", Integer.class))
                 .isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalDecisionResultV1'", Integer.class))

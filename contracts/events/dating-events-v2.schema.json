@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/dating-events-v2.schema.json",
+  "title": "Owoke dating events v2",
+  "oneOf": [
+    { "$ref": "#/$defs/dateProposalCreated" },
+    { "$ref": "#/$defs/dateProposalStatusChanged" }
+  ],
+  "$defs": {
+    "envelope": {
+      "type": "object",
+      "required": ["eventId", "eventType", "eventVersion", "aggregateId", "occurredAt", "correlationId", "payload"],
+      "properties": {
+        "eventId": { "type": "string", "format": "uuid" },
+        "eventType": { "type": "string" },
+        "eventVersion": { "const": 2 },
+        "aggregateId": { "type": "string" },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "correlationId": { "type": "string", "format": "uuid" },
+        "payload": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "proposalPayload": {
+      "type": "object",
+      "required": ["proposalId", "coupleId", "proposerId", "responderId", "scheduledAt", "timezone", "placeName", "placeAddress"],
+      "properties": {
+        "proposalId": { "type": "string", "format": "uuid" },
+        "coupleId": { "type": "string", "format": "uuid" },
+        "proposerId": { "type": "string", "format": "uuid" },
+        "responderId": { "type": "string", "format": "uuid" },
+        "scheduledAt": { "type": "string", "format": "date-time" },
+        "timezone": { "type": "string" },
+        "placeId": { "type": "string", "format": "uuid" },
+        "placeName": { "type": "string" },
+        "placeAddress": { "type": "string" },
+        "placeCoverMediaId": { "type": ["string", "null"], "format": "uuid" },
+        "description": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "changedBy": { "type": "string", "format": "uuid" },
+        "changedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "dateProposalCreated": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "eventType": { "const": "DateProposalCreatedV2" }, "payload": { "$ref": "#/$defs/proposalPayload" } } }
+      ]
+    },
+    "dateProposalStatusChanged": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "eventType": { "enum": ["DateProposalAcceptedV2", "DateProposalDeclinedV2", "DateProposalCancelledV2"] }, "payload": { "$ref": "#/$defs/proposalPayload" } } }
+      ]
+    }
+  }
+}

@@ -12,7 +12,7 @@ public class DateProposalMapper {
         return new DateProposalResponse(
                 details.id(), details.coupleId(), details.proposerId(), details.responderId(),
                 details.scheduledAt(), details.timezone(), details.placeId(), details.placeName(),
-                details.placeAddress(), details.description(), details.status(), details.createdAt(),
+                details.placeAddress(), details.placeCoverMediaId(), details.description(), details.status(), details.createdAt(),
                 details.decidedAt(), details.cancelledAt(), details.version());
     }
 }
