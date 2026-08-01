@@ -12,6 +12,9 @@ import com.dating.owoke.media.asset.messaging.event.MediaAssetDeletedV1;
 import com.dating.owoke.media.asset.messaging.event.MediaAssetReadyV1;
 import com.dating.owoke.media.asset.messaging.event.MediaVariantV1;
 import com.dating.owoke.media.collection.messaging.event.MediaCollectionChangedV1;
+import com.dating.owoke.media.collection.messaging.event.MediaCollectionChangedV2;
+import com.dating.owoke.media.collection.messaging.event.MediaCollectionItemV2;
+import com.dating.owoke.media.collection.domain.MediaOwnerType;
 import com.dating.owoke.media.shared.messaging.service.OutboxService;
 
 @Service
@@ -25,7 +28,7 @@ public class MediaCollectionEventService {
         this.outboxService = outboxService;
     }
 
-    public void assetReady(UUID placeId, MediaAsset asset, List<MediaVariant> variants) {
+    public void assetReady(MediaOwnerType ownerType, UUID ownerId, MediaAsset asset, List<MediaVariant> variants) {
         List<MediaVariantV1> payloadVariants = variants.stream()
                 .map(variant -> new MediaVariantV1(
                         variant.getVariant().name(),
@@ -35,15 +38,18 @@ public class MediaCollectionEventService {
                         variant.getSize(),
                         variant.getSha256()))
                 .toList();
-        outboxService.enqueue(
-                MEDIA_EVENTS_TOPIC,
-                placeId,
-                "MediaAssetReadyV1",
-                new MediaAssetReadyV1(asset.getId(), "PLACE", placeId, asset.getSha256(), payloadVariants));
+        if (ownerType == MediaOwnerType.PLACE) {
+            outboxService.enqueue(
+                    MEDIA_EVENTS_TOPIC,
+                    ownerId,
+                    "MediaAssetReadyV1",
+                    new MediaAssetReadyV1(asset.getId(), ownerType.name(), ownerId, asset.getSha256(), payloadVariants));
+        }
     }
 
     public void collectionChanged(MediaCollectionSnapshot snapshot) {
-        outboxService.enqueue(
+        if (snapshot.ownerType() == MediaOwnerType.PLACE) {
+            outboxService.enqueue(
                 MEDIA_EVENTS_TOPIC,
                 snapshot.ownerId(),
                 "MediaCollectionChangedV1",
@@ -53,13 +59,29 @@ public class MediaCollectionEventService {
                         snapshot.coverMediaId(),
                         snapshot.orderedMediaIds(),
                         snapshot.revision()));
-    }
-
-    public void assetDeleted(UUID placeId, UUID mediaId, Instant deletedAt, Instant purgeAfter) {
+        }
         outboxService.enqueue(
                 MEDIA_EVENTS_TOPIC,
-                placeId,
+                snapshot.ownerId(),
+                "MediaCollectionChangedV2",
+                2,
+                new MediaCollectionChangedV2(
+                        snapshot.ownerType().name(),
+                        snapshot.ownerId(),
+                        snapshot.coverMediaId(),
+                        snapshot.orderedMediaIds(),
+                        snapshot.items().stream().map(item -> new MediaCollectionItemV2(
+                                item.mediaId(), item.position(), item.source(), item.providerAssetKey(),
+                                item.thumbnailUrl(), item.cardUrl(),
+                                item.detailUrl(), item.sourceName(), item.sourceLink())).toList(),
+                        snapshot.revision()));
+    }
+
+    public void assetDeleted(MediaOwnerType ownerType, UUID ownerId, UUID mediaId, Instant deletedAt, Instant purgeAfter) {
+        outboxService.enqueue(
+                MEDIA_EVENTS_TOPIC,
+                ownerId,
                 "MediaAssetDeletedV1",
-                new MediaAssetDeletedV1(mediaId, "PLACE", placeId, deletedAt, purgeAfter));
+                new MediaAssetDeletedV1(mediaId, ownerType.name(), ownerId, deletedAt, purgeAfter));
     }
 }

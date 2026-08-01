@@ -9,6 +9,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import com.dating.owoke.media.collection.domain.MediaOwnerType;
+
 class MediaAssetTest {
 
     @Test
@@ -33,5 +35,26 @@ class MediaAssetTest {
 
         assertThatThrownBy(() -> asset.markReady("image/jpeg", 100, 100, "a".repeat(64), Instant.now()))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void suppressedRemoteAssetCanOnlyReturnThroughExplicitProviderRestore() {
+        Instant now = Instant.parse("2026-08-01T10:00:00Z");
+        MediaAsset asset = MediaAsset.remote(
+                UUID.randomUUID(), MediaOwnerType.EVENT, UUID.randomUUID(), "KUDAGO", "image-1",
+                "https://kudago.com/media/images/one.jpg", "KudaGo",
+                "https://kudago.com/events/one/", now);
+
+        asset.suppressRemote(now.plusSeconds(1));
+        assertThat(asset.refreshRemote(
+                "https://kudago.com/media/images/two.jpg", "KudaGo", "https://kudago.com/events/one/"))
+                .isFalse();
+
+        asset.restoreRemote(
+                "https://kudago.com/media/images/two.jpg", "KudaGo",
+                "https://kudago.com/events/one/", now.plusSeconds(2));
+
+        assertThat(asset.getStatus()).isEqualTo(MediaAssetStatus.READY);
+        assertThat(asset.getRemoteUrl()).endsWith("two.jpg");
     }
 }

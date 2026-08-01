@@ -22,6 +22,7 @@ import com.dating.owoke.media.collection.domain.PlaceProjection;
 import com.dating.owoke.media.collection.repository.MediaCollectionItemRepository;
 import com.dating.owoke.media.collection.repository.MediaCollectionRepository;
 import com.dating.owoke.media.collection.repository.PlaceProjectionRepository;
+import com.dating.owoke.media.collection.repository.EventProjectionRepository;
 import com.dating.owoke.media.processing.configuration.MediaProcessingProperties;
 import com.dating.owoke.media.processing.exception.InvalidImageException;
 import com.dating.owoke.media.processing.service.ImageFormatDetector;
@@ -29,47 +30,61 @@ import com.dating.owoke.media.shared.exception.BusinessConflictException;
 import com.dating.owoke.media.shared.exception.ResourceNotFoundException;
 import com.dating.owoke.media.storage.port.ObjectStorage;
 
+import jakarta.persistence.EntityManager;
+
 @Service
 public class MediaUploadService {
 
-    private static final int MAX_PLACE_IMAGES = 5;
+    private static final int MAX_IMAGES = 5;
 
     private final MediaAssetRepository assetRepository;
     private final MediaCollectionRepository collectionRepository;
     private final MediaCollectionItemRepository itemRepository;
     private final PlaceProjectionRepository placeRepository;
+    private final EventProjectionRepository eventRepository;
     private final ObjectStorage storage;
     private final MediaProcessingProperties properties;
     private final Clock clock;
+    private final EntityManager entityManager;
 
     public MediaUploadService(
             MediaAssetRepository assetRepository,
             MediaCollectionRepository collectionRepository,
             MediaCollectionItemRepository itemRepository,
             PlaceProjectionRepository placeRepository,
+            EventProjectionRepository eventRepository,
             ObjectStorage storage,
             MediaProcessingProperties properties,
+            EntityManager entityManager,
             Clock clock) {
         this.assetRepository = assetRepository;
         this.collectionRepository = collectionRepository;
         this.itemRepository = itemRepository;
         this.placeRepository = placeRepository;
+        this.eventRepository = eventRepository;
         this.storage = storage;
         this.properties = properties;
+        this.entityManager = entityManager;
         this.clock = clock;
     }
 
     @Transactional
     public MediaUploadResponse upload(UUID placeId, UUID uploadedBy, MultipartFile file) {
-        PlaceProjection place = placeRepository.lockById(placeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Place is not available in media projection yet"));
-        if (!place.acceptsUploads()) {
-            throw new BusinessConflictException("Images cannot be added to an archived place");
-        }
+        return upload(MediaOwnerType.PLACE, placeId, uploadedBy, file);
+    }
 
-        List<MediaCollectionItem> items = itemRepository.lockActive(MediaOwnerType.PLACE, placeId);
-        if (items.size() >= MAX_PLACE_IMAGES) {
-            throw new BusinessConflictException("A place can contain at most five images");
+    @Transactional
+    public MediaUploadResponse uploadEvent(UUID eventId, UUID uploadedBy, MultipartFile file) {
+        return upload(MediaOwnerType.EVENT, eventId, uploadedBy, file);
+    }
+
+    private MediaUploadResponse upload(
+            MediaOwnerType ownerType, UUID ownerId, UUID uploadedBy, MultipartFile file) {
+        validateOwner(ownerType, ownerId);
+
+        List<MediaCollectionItem> items = itemRepository.lockActive(ownerType, ownerId);
+        if (items.size() >= MAX_IMAGES) {
+            throw new BusinessConflictException("A media collection can contain at most five images");
         }
 
         byte[] content = read(file);
@@ -86,17 +101,43 @@ public class MediaUploadService {
                 content.length,
                 uploadedBy,
                 clock.instant()));
+        asset.attachToOwner(ownerType, ownerId);
+        boolean replaceRemoteCover = items.stream()
+                .filter(MediaCollectionItem::isCover)
+                .map(item -> assetRepository.findById(item.getMediaAssetId()).orElse(null))
+                .anyMatch(existing -> existing != null && existing.getSource() == MediaAssetSource.REMOTE_URL);
+        if (replaceRemoteCover) {
+            items.forEach(item -> item.reorder(item.getPosition(), false));
+            entityManager.flush();
+        }
         itemRepository.save(new MediaCollectionItem(
-                placeId,
+                ownerType,
+                ownerId,
                 mediaId,
                 items.size(),
-                items.isEmpty(),
+                items.isEmpty() || replaceRemoteCover,
                 clock.instant()));
-        MediaCollection collection = collectionRepository.lockByOwnerId(placeId)
-                .orElseGet(() -> new MediaCollection(placeId, clock.instant()));
+        MediaCollection collection = collectionRepository.lockByOwner(ownerType, ownerId)
+                .orElseGet(() -> new MediaCollection(ownerType, ownerId, clock.instant()));
         collection.changed(clock.instant());
         collectionRepository.save(collection);
         return new MediaUploadResponse(asset.getId(), asset.getStatus().name());
+    }
+
+    private void validateOwner(MediaOwnerType ownerType, UUID ownerId) {
+        if (ownerType == MediaOwnerType.PLACE) {
+            PlaceProjection place = placeRepository.lockById(ownerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Place is not available in media projection yet"));
+            if (!place.acceptsUploads()) {
+                throw new BusinessConflictException("Images cannot be added to an archived place");
+            }
+            return;
+        }
+        var event = eventRepository.lockById(ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event is not available in media projection yet"));
+        if (!event.acceptsUploads()) {
+            throw new BusinessConflictException("Images cannot be added to a hidden or archived event");
+        }
     }
 
     private byte[] read(MultipartFile file) {

@@ -16,9 +16,13 @@ import com.dating.owoke.media.asset.repository.MediaAssetRepository;
 import com.dating.owoke.media.collection.domain.MediaOwnerType;
 import com.dating.owoke.media.collection.domain.PlaceProjection;
 import com.dating.owoke.media.collection.domain.PlaceProjectionStatus;
+import com.dating.owoke.media.collection.domain.EventProjection;
+import com.dating.owoke.media.collection.domain.EventProjectionStatus;
 import com.dating.owoke.media.collection.repository.MediaCollectionItemRepository;
 import com.dating.owoke.media.collection.repository.MediaCollectionRepository;
 import com.dating.owoke.media.collection.repository.PlaceProjectionRepository;
+import com.dating.owoke.media.collection.repository.EventProjectionRepository;
+import com.dating.owoke.media.collection.domain.MediaCollectionId;
 import com.dating.owoke.media.shared.exception.ResourceNotFoundException;
 
 class MediaCollectionQueryServiceTest {
@@ -27,8 +31,9 @@ class MediaCollectionQueryServiceTest {
     private final MediaCollectionRepository collectionRepository = mock(MediaCollectionRepository.class);
     private final MediaAssetRepository assetRepository = mock(MediaAssetRepository.class);
     private final PlaceProjectionRepository placeRepository = mock(PlaceProjectionRepository.class);
+    private final EventProjectionRepository eventRepository = mock(EventProjectionRepository.class);
     private final MediaCollectionQueryService service = new MediaCollectionQueryService(
-            itemRepository, collectionRepository, assetRepository, placeRepository);
+            itemRepository, collectionRepository, assetRepository, placeRepository, eventRepository);
 
     @Test
     void publicEndpointHidesDraftCollection() {
@@ -46,11 +51,23 @@ class MediaCollectionQueryServiceTest {
         when(placeRepository.existsById(placeId)).thenReturn(true);
         when(itemRepository.findActive(MediaOwnerType.PLACE, placeId)).thenReturn(List.of());
         when(assetRepository.findAllById(List.of())).thenReturn(List.of());
-        when(collectionRepository.findById(placeId)).thenReturn(Optional.empty());
+        when(collectionRepository.findById(new MediaCollectionId(MediaOwnerType.PLACE, placeId)))
+                .thenReturn(Optional.empty());
 
         var response = service.getAdmin(placeId);
 
-        assertThat(response.placeId()).isEqualTo(placeId);
+        assertThat(response.ownerType()).isEqualTo(MediaOwnerType.PLACE);
+        assertThat(response.ownerId()).isEqualTo(placeId);
         assertThat(response.images()).isEmpty();
+    }
+
+    @Test
+    void publicEventEndpointHidesDraftCollection() {
+        UUID eventId = UUID.randomUUID();
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(
+                new EventProjection(eventId, EventProjectionStatus.DRAFT, Instant.now())));
+
+        assertThatThrownBy(() -> service.getPublicEvent(eventId))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 }

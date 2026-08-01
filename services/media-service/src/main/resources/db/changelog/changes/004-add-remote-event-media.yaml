@@ -1,0 +1,54 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-add-remote-event-media
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              ALTER TABLE media_assets ALTER COLUMN uploaded_by DROP NOT NULL;
+              ALTER TABLE media_assets
+                  ADD COLUMN owner_type VARCHAR(32),
+                  ADD COLUMN owner_id UUID,
+                  ADD COLUMN provider VARCHAR(32),
+                  ADD COLUMN provider_asset_key VARCHAR(128),
+                  ADD COLUMN remote_url VARCHAR(1000),
+                  ADD COLUMN source_name VARCHAR(200),
+                  ADD COLUMN source_link VARCHAR(1000);
+              ALTER TABLE media_assets ADD CONSTRAINT ck_media_asset_remote_metadata CHECK (
+                  (source <> 'REMOTE_URL') OR
+                  (owner_type IN ('PLACE', 'EVENT') AND owner_id IS NOT NULL AND provider IS NOT NULL
+                   AND provider_asset_key IS NOT NULL AND remote_url IS NOT NULL)
+              );
+              CREATE UNIQUE INDEX uk_media_remote_asset
+                  ON media_assets(owner_type, owner_id, provider, provider_asset_key)
+                  WHERE source = 'REMOTE_URL';
+
+              ALTER TABLE media_collection_items DROP CONSTRAINT ck_media_owner_type;
+              ALTER TABLE media_collection_items ADD CONSTRAINT ck_media_owner_type
+                  CHECK (owner_type IN ('PLACE', 'EVENT'));
+
+              ALTER TABLE media_collections DROP CONSTRAINT media_collections_pkey;
+              ALTER TABLE media_collections DROP CONSTRAINT ck_media_collection_owner_type;
+              ALTER TABLE media_collections ADD CONSTRAINT media_collections_pkey PRIMARY KEY (owner_type, owner_id);
+              ALTER TABLE media_collections ADD CONSTRAINT ck_media_collection_owner_type
+                  CHECK (owner_type IN ('PLACE', 'EVENT'));
+
+              CREATE TABLE event_projections (
+                  event_id UUID PRIMARY KEY,
+                  status VARCHAR(32) NOT NULL,
+                  updated_at TIMESTAMPTZ NOT NULL,
+                  version BIGINT NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_media_event_status CHECK (status IN ('DRAFT', 'ACTIVE', 'HIDDEN', 'ARCHIVED'))
+              );
+
+              CREATE TABLE remote_media_suppressions (
+                  id UUID PRIMARY KEY,
+                  owner_type VARCHAR(32) NOT NULL,
+                  owner_id UUID NOT NULL,
+                  provider VARCHAR(32) NOT NULL,
+                  provider_asset_key VARCHAR(128) NOT NULL,
+                  suppressed_at TIMESTAMPTZ NOT NULL,
+                  CONSTRAINT ck_remote_suppression_owner_type CHECK (owner_type IN ('PLACE', 'EVENT')),
+                  CONSTRAINT uk_remote_suppression UNIQUE (owner_type, owner_id, provider, provider_asset_key)
+              );

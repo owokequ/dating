@@ -14,6 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dating.owoke.media.asset.domain.MediaAsset;
 import com.dating.owoke.media.asset.repository.MediaAssetRepository;
+import com.dating.owoke.media.asset.repository.RemoteMediaSuppressionRepository;
+import com.dating.owoke.media.asset.domain.MediaAssetSource;
+import com.dating.owoke.media.asset.domain.RemoteMediaSuppression;
 import com.dating.owoke.media.collection.domain.MediaCollection;
 import com.dating.owoke.media.collection.domain.MediaCollectionItem;
 import com.dating.owoke.media.collection.domain.MediaOwnerType;
@@ -34,6 +37,7 @@ public class MediaCollectionCommandService {
     private final MediaCollectionRepository collectionRepository;
     private final MediaCollectionItemRepository itemRepository;
     private final MediaAssetRepository assetRepository;
+    private final RemoteMediaSuppressionRepository suppressionRepository;
     private final MediaCollectionSnapshotService snapshotService;
     private final MediaCollectionEventService eventService;
     private final MediaProcessingProperties properties;
@@ -44,6 +48,7 @@ public class MediaCollectionCommandService {
             MediaCollectionRepository collectionRepository,
             MediaCollectionItemRepository itemRepository,
             MediaAssetRepository assetRepository,
+            RemoteMediaSuppressionRepository suppressionRepository,
             MediaCollectionSnapshotService snapshotService,
             MediaCollectionEventService eventService,
             MediaProcessingProperties properties,
@@ -52,6 +57,7 @@ public class MediaCollectionCommandService {
         this.collectionRepository = collectionRepository;
         this.itemRepository = itemRepository;
         this.assetRepository = assetRepository;
+        this.suppressionRepository = suppressionRepository;
         this.snapshotService = snapshotService;
         this.eventService = eventService;
         this.properties = properties;
@@ -61,8 +67,17 @@ public class MediaCollectionCommandService {
 
     @Transactional
     public void reorder(UUID placeId, ReorderMediaCollectionRequest request) {
-        MediaCollection collection = requiredCollection(placeId);
-        List<MediaCollectionItem> items = itemRepository.lockActive(MediaOwnerType.PLACE, placeId);
+        reorder(MediaOwnerType.PLACE, placeId, request);
+    }
+
+    @Transactional
+    public void reorderEvent(UUID eventId, ReorderMediaCollectionRequest request) {
+        reorder(MediaOwnerType.EVENT, eventId, request);
+    }
+
+    private void reorder(MediaOwnerType ownerType, UUID ownerId, ReorderMediaCollectionRequest request) {
+        MediaCollection collection = requiredCollection(ownerType, ownerId);
+        List<MediaCollectionItem> items = itemRepository.lockActive(ownerType, ownerId);
         validateOrder(items, request);
         Map<UUID, MediaCollectionItem> byMediaId = items.stream()
                 .collect(Collectors.toMap(MediaCollectionItem::getMediaAssetId, Function.identity()));
@@ -73,13 +88,22 @@ public class MediaCollectionCommandService {
         }
         collection.changed(clock.instant());
         entityManager.flush();
-        eventService.collectionChanged(snapshotService.readySnapshot(placeId));
+        eventService.collectionChanged(snapshotService.readySnapshot(ownerType, ownerId));
     }
 
     @Transactional
     public void delete(UUID placeId, UUID mediaId) {
-        MediaCollection collection = requiredCollection(placeId);
-        List<MediaCollectionItem> items = itemRepository.lockActive(MediaOwnerType.PLACE, placeId);
+        delete(MediaOwnerType.PLACE, placeId, mediaId);
+    }
+
+    @Transactional
+    public void deleteEvent(UUID eventId, UUID mediaId) {
+        delete(MediaOwnerType.EVENT, eventId, mediaId);
+    }
+
+    private void delete(MediaOwnerType ownerType, UUID ownerId, UUID mediaId) {
+        MediaCollection collection = requiredCollection(ownerType, ownerId);
+        List<MediaCollectionItem> items = itemRepository.lockActive(ownerType, ownerId);
         MediaCollectionItem removed = items.stream()
                 .filter(item -> item.getMediaAssetId().equals(mediaId))
                 .findFirst()
@@ -90,7 +114,16 @@ public class MediaCollectionCommandService {
         Instant purgeAfter = now.plus(properties.purgeDelay());
         boolean removedCover = removed.isCover();
         removed.delete(now);
-        asset.softDelete(now, purgeAfter);
+        if (asset.getSource() == MediaAssetSource.REMOTE_URL) {
+            if (!suppressionRepository.existsByOwnerTypeAndOwnerIdAndProviderAndProviderAssetKey(
+                    ownerType, ownerId, asset.getProvider(), asset.getProviderAssetKey())) {
+                suppressionRepository.save(new RemoteMediaSuppression(
+                        ownerType, ownerId, asset.getProvider(), asset.getProviderAssetKey(), now));
+            }
+            asset.suppressRemote(now);
+        } else {
+            asset.softDelete(now, purgeAfter);
+        }
 
         List<MediaCollectionItem> remaining = items.stream().filter(item -> item != removed).toList();
         boolean needsNewCover = removedCover || remaining.stream().noneMatch(MediaCollectionItem::isCover);
@@ -101,13 +134,15 @@ public class MediaCollectionCommandService {
         }
         collection.changed(now);
         entityManager.flush();
-        eventService.assetDeleted(placeId, mediaId, now, purgeAfter);
-        eventService.collectionChanged(snapshotService.readySnapshot(placeId));
+        if (ownerType == MediaOwnerType.PLACE && asset.getSource() == MediaAssetSource.UPLOAD) {
+            eventService.assetDeleted(ownerType, ownerId, mediaId, now, purgeAfter);
+        }
+        eventService.collectionChanged(snapshotService.readySnapshot(ownerType, ownerId));
     }
 
-    private MediaCollection requiredCollection(UUID placeId) {
-        return collectionRepository.lockByOwnerId(placeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Place media collection does not exist"));
+    private MediaCollection requiredCollection(MediaOwnerType ownerType, UUID ownerId) {
+        return collectionRepository.lockByOwner(ownerType, ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Media collection does not exist"));
     }
 
     private void validateOrder(List<MediaCollectionItem> items, ReorderMediaCollectionRequest request) {

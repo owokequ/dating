@@ -27,10 +27,14 @@ public class OutboxService {
     }
 
     public void enqueue(String topic, UUID aggregateId, String eventType, Object payload) {
+        enqueue(topic, aggregateId, eventType, 1, payload);
+    }
+
+    public void enqueue(String topic, UUID aggregateId, String eventType, int eventVersion, Object payload) {
         UUID eventId = UUID.randomUUID();
         Instant now = clock.instant();
         EventEnvelope envelope = new EventEnvelope(
-                eventId, eventType, 1, aggregateId.toString(), now, UUID.randomUUID(), payload);
+                eventId, eventType, eventVersion, aggregateId.toString(), now, UUID.randomUUID(), payload);
         try {
             repository.save(new OutboxEvent(
                     eventId,

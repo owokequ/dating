@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+import com.dating.owoke.media.collection.domain.MediaOwnerType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -42,8 +44,30 @@ public class MediaAsset {
     @Column(length = 64)
     private String sha256;
 
-    @Column(name = "uploaded_by", nullable = false, updatable = false)
+    @Column(name = "uploaded_by", updatable = false)
     private UUID uploadedBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "owner_type", length = 32, updatable = false)
+    private MediaOwnerType ownerType;
+
+    @Column(name = "owner_id", updatable = false)
+    private UUID ownerId;
+
+    @Column(length = 32)
+    private String provider;
+
+    @Column(name = "provider_asset_key", length = 128)
+    private String providerAssetKey;
+
+    @Column(name = "remote_url", length = 1000)
+    private String remoteUrl;
+
+    @Column(name = "source_name", length = 200)
+    private String sourceName;
+
+    @Column(name = "source_link", length = 1000)
+    private String sourceLink;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -86,6 +110,70 @@ public class MediaAsset {
         this.status = MediaAssetStatus.UPLOADED;
     }
 
+    public static MediaAsset remote(
+            UUID id,
+            MediaOwnerType ownerType,
+            UUID ownerId,
+            String provider,
+            String providerAssetKey,
+            String remoteUrl,
+            String sourceName,
+            String sourceLink,
+            Instant now) {
+        MediaAsset asset = new MediaAsset();
+        asset.id = Objects.requireNonNull(id, "id must not be null");
+        asset.source = MediaAssetSource.REMOTE_URL;
+        asset.status = MediaAssetStatus.READY;
+        asset.originalSize = 0;
+        asset.ownerType = Objects.requireNonNull(ownerType, "ownerType must not be null");
+        asset.ownerId = Objects.requireNonNull(ownerId, "ownerId must not be null");
+        asset.provider = required(provider, "provider", 32);
+        asset.providerAssetKey = required(providerAssetKey, "providerAssetKey", 128);
+        asset.remoteUrl = required(remoteUrl, "remoteUrl", 1000);
+        asset.sourceName = truncate(sourceName, 200);
+        asset.sourceLink = truncate(sourceLink, 1000);
+        asset.createdAt = Objects.requireNonNull(now, "now must not be null");
+        asset.readyAt = now;
+        return asset;
+    }
+
+    public void attachToOwner(MediaOwnerType ownerType, UUID ownerId) {
+        if (this.ownerType != null || this.ownerId != null) {
+            throw new IllegalStateException("Media asset owner is already assigned");
+        }
+        this.ownerType = Objects.requireNonNull(ownerType, "ownerType must not be null");
+        this.ownerId = Objects.requireNonNull(ownerId, "ownerId must not be null");
+    }
+
+    public boolean refreshRemote(String remoteUrl, String sourceName, String sourceLink) {
+        if (source != MediaAssetSource.REMOTE_URL || status == MediaAssetStatus.DELETED) {
+            return false;
+        }
+        String normalizedName = truncate(sourceName, 200);
+        String normalizedLink = truncate(sourceLink, 1000);
+        boolean changed = !Objects.equals(this.remoteUrl, remoteUrl)
+                || !Objects.equals(this.sourceName, normalizedName)
+                || !Objects.equals(this.sourceLink, normalizedLink);
+        this.remoteUrl = required(remoteUrl, "remoteUrl", 1000);
+        this.sourceName = normalizedName;
+        this.sourceLink = normalizedLink;
+        return changed;
+    }
+
+    public void restoreRemote(String remoteUrl, String sourceName, String sourceLink, Instant now) {
+        if (source != MediaAssetSource.REMOTE_URL) {
+            throw new IllegalStateException("Only remote media can be restored");
+        }
+        this.remoteUrl = required(remoteUrl, "remoteUrl", 1000);
+        this.sourceName = truncate(sourceName, 200);
+        this.sourceLink = truncate(sourceLink, 1000);
+        this.readyAt = Objects.requireNonNull(now, "now must not be null");
+        this.deletedAt = null;
+        this.purgeAfter = null;
+        this.purgedAt = null;
+        this.status = MediaAssetStatus.READY;
+    }
+
     public void markProcessing() {
         if (status != MediaAssetStatus.UPLOADED) {
             throw new IllegalStateException("Only uploaded media can be processed");
@@ -124,6 +212,17 @@ public class MediaAsset {
         status = MediaAssetStatus.DELETED;
     }
 
+    public void suppressRemote(Instant now) {
+        if (source != MediaAssetSource.REMOTE_URL) {
+            throw new IllegalStateException("Only remote media can be suppressed");
+        }
+        if (status == MediaAssetStatus.DELETED) {
+            return;
+        }
+        deletedAt = Objects.requireNonNull(now, "now must not be null");
+        status = MediaAssetStatus.DELETED;
+    }
+
     public void markPurged(Instant now) {
         if (status != MediaAssetStatus.DELETED) {
             throw new IllegalStateException("Only deleted media can be purged");
@@ -133,6 +232,10 @@ public class MediaAsset {
 
     public UUID getId() {
         return id;
+    }
+
+    public MediaAssetSource getSource() {
+        return source;
     }
 
     public MediaAssetStatus getStatus() {
@@ -173,6 +276,41 @@ public class MediaAsset {
 
     public Instant getPurgedAt() {
         return purgedAt;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public String getProviderAssetKey() {
+        return providerAssetKey;
+    }
+
+    public String getRemoteUrl() {
+        return remoteUrl;
+    }
+
+    public String getSourceName() {
+        return sourceName;
+    }
+
+    public String getSourceLink() {
+        return sourceLink;
+    }
+
+    public MediaOwnerType getOwnerType() {
+        return ownerType;
+    }
+
+    public UUID getOwnerId() {
+        return ownerId;
+    }
+
+    private static String required(String value, String name, int limit) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return truncate(value, limit);
     }
 
     private static String truncate(String value, int limit) {

@@ -1,14 +1,12 @@
-package com.dating.owoke.media.asset.dto;
+package com.dating.owoke.media.collection.messaging.event;
 
 import java.util.UUID;
 
-public record MediaItemResponse(
+public record MediaCollectionItemV2(
         UUID mediaId,
+        int position,
         String source,
         String providerAssetKey,
-        String status,
-        int position,
-        boolean cover,
         String thumbnailUrl,
         String cardUrl,
         String detailUrl,

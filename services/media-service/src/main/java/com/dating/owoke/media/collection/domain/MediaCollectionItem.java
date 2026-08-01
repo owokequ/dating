@@ -48,9 +48,15 @@ public class MediaCollectionItem {
     protected MediaCollectionItem() {
     }
 
-    public MediaCollectionItem(UUID ownerId, UUID mediaAssetId, int position, boolean cover, Instant now) {
+    public MediaCollectionItem(
+            MediaOwnerType ownerType,
+            UUID ownerId,
+            UUID mediaAssetId,
+            int position,
+            boolean cover,
+            Instant now) {
         this.id = UUID.randomUUID();
-        this.ownerType = MediaOwnerType.PLACE;
+        this.ownerType = Objects.requireNonNull(ownerType, "ownerType must not be null");
         this.ownerId = Objects.requireNonNull(ownerId, "ownerId must not be null");
         this.mediaAssetId = Objects.requireNonNull(mediaAssetId, "mediaAssetId must not be null");
         if (position < 0) {
@@ -76,6 +82,10 @@ public class MediaCollectionItem {
 
     public UUID getOwnerId() {
         return ownerId;
+    }
+
+    public MediaOwnerType getOwnerType() {
+        return ownerType;
     }
 
     public UUID getMediaAssetId() {

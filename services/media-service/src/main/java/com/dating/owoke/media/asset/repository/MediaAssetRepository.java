@@ -12,12 +12,16 @@ import org.springframework.data.jpa.repository.Query;
 
 import com.dating.owoke.media.asset.domain.MediaAsset;
 import com.dating.owoke.media.asset.domain.MediaAssetStatus;
+import com.dating.owoke.media.collection.domain.MediaOwnerType;
 
 import jakarta.persistence.LockModeType;
 
 public interface MediaAssetRepository extends JpaRepository<MediaAsset, UUID> {
 
     Optional<MediaAsset> findByIdAndStatus(UUID id, MediaAssetStatus status);
+
+    Optional<MediaAsset> findByOwnerTypeAndOwnerIdAndProviderAndProviderAssetKey(
+            MediaOwnerType ownerType, UUID ownerId, String provider, String providerAssetKey);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select asset from MediaAsset asset where asset.id = :id")

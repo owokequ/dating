@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/changes/002-add-media-collections.yaml
   - include:
       file: db/changelog/changes/003-add-draft-place-projection.yaml
+  - include:
+      file: db/changelog/changes/004-add-remote-event-media.yaml

@@ -86,12 +86,12 @@ public class MediaProcessingLifecycleService {
                 image.originalHeight(),
                 image.sourceSha256(),
                 clock.instant());
-        MediaCollection collection = collectionRepository.lockByOwnerId(item.getOwnerId())
+        MediaCollection collection = collectionRepository.lockByOwner(item.getOwnerType(), item.getOwnerId())
                 .orElseThrow(() -> new IllegalStateException("Media collection disappeared"));
         collection.changed(clock.instant());
         assetRepository.flush();
-        eventService.assetReady(item.getOwnerId(), asset, variants);
-        eventService.collectionChanged(snapshotService.readySnapshot(item.getOwnerId()));
+        eventService.assetReady(item.getOwnerType(), item.getOwnerId(), asset, variants);
+        eventService.collectionChanged(snapshotService.readySnapshot(item.getOwnerType(), item.getOwnerId()));
     }
 
     @Transactional

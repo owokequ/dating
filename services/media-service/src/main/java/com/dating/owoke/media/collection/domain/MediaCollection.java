@@ -4,11 +4,9 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -16,13 +14,8 @@ import jakarta.persistence.Version;
 @Table(name = "media_collections")
 public class MediaCollection {
 
-    @Id
-    @Column(name = "owner_id")
-    private UUID ownerId;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "owner_type", nullable = false, updatable = false, length = 32)
-    private MediaOwnerType ownerType;
+    @EmbeddedId
+    private MediaCollectionId id;
 
     @Column(nullable = false)
     private long revision;
@@ -37,9 +30,8 @@ public class MediaCollection {
     protected MediaCollection() {
     }
 
-    public MediaCollection(UUID ownerId, Instant now) {
-        this.ownerId = Objects.requireNonNull(ownerId, "ownerId must not be null");
-        this.ownerType = MediaOwnerType.PLACE;
+    public MediaCollection(MediaOwnerType ownerType, UUID ownerId, Instant now) {
+        this.id = new MediaCollectionId(ownerType, ownerId);
         this.updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
 
@@ -51,5 +43,13 @@ public class MediaCollection {
 
     public long getRevision() {
         return revision;
+    }
+
+    public MediaOwnerType getOwnerType() {
+        return id.getOwnerType();
+    }
+
+    public UUID getOwnerId() {
+        return id.getOwnerId();
     }
 }

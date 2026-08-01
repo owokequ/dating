@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/media-events-v2.schema.json",
+  "title": "MediaCollectionChangedV2 payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ownerType", "ownerId", "orderedMediaIds", "items", "collectionVersion"],
+  "properties": {
+    "ownerType": {"enum": ["PLACE", "EVENT"]},
+    "ownerId": {"type": "string", "format": "uuid"},
+    "coverMediaId": {"type": ["string", "null"], "format": "uuid"},
+    "orderedMediaIds": {
+      "type": "array", "maxItems": 5, "uniqueItems": true,
+      "items": {"type": "string", "format": "uuid"}
+    },
+    "items": {
+      "type": "array", "maxItems": 5,
+      "items": {"$ref": "#/$defs/item"}
+    },
+    "collectionVersion": {"type": "integer", "minimum": 0}
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mediaId", "position", "source", "thumbnailUrl", "cardUrl", "detailUrl"],
+      "properties": {
+        "mediaId": {"type": "string", "format": "uuid"},
+        "position": {"type": "integer", "minimum": 0, "maximum": 4},
+        "source": {"enum": ["UPLOAD", "REMOTE_URL", "PLACEHOLDER"]},
+        "providerAssetKey": {"type": ["string", "null"], "maxLength": 128},
+        "thumbnailUrl": {"type": "string", "minLength": 1},
+        "cardUrl": {"type": "string", "minLength": 1},
+        "detailUrl": {"type": "string", "minLength": 1},
+        "sourceName": {"type": ["string", "null"], "maxLength": 200},
+        "sourceLink": {"type": ["string", "null"], "format": "uri"}
+      }
+    }
+  }
+}
