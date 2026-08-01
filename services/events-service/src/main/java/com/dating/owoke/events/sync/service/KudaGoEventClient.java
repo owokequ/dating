@@ -130,12 +130,20 @@ public class KudaGoEventClient {
         if (value == null || value.isBlank()) return null;
         try {
             java.net.URI uri = java.net.URI.create(value.replaceFirst("^http://", "https://"));
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || !"kudago.com".equalsIgnoreCase(uri.getHost())) return null;
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || !isKudaGoHost(uri.getHost())) return null;
             if (mediaOnly && (uri.getPath() == null || !uri.getPath().startsWith("/media/"))) return null;
             return uri.toString();
         } catch (IllegalArgumentException exception) {
             return null;
         }
+    }
+
+    private static boolean isKudaGoHost(String host) {
+        if (host == null) {
+            return false;
+        }
+        String normalized = host.toLowerCase(java.util.Locale.ROOT);
+        return normalized.equals("kudago.com") || normalized.endsWith(".kudago.com");
     }
     private static String normalizeAnyHttpUrl(String value) {
         if (value == null || value.isBlank()) return null;

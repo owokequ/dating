@@ -24,7 +24,7 @@ class CatalogEventTest {
         assertThat(first.getOccurrences()).singleElement()
                 .extracting(EventOccurrence::getId)
                 .isEqualTo(second.getOccurrences().getFirst().getId());
-        assertThat(first.getSourcePageUrl()).startsWith("https://kudago.com/");
+        assertThat(first.getSourcePageUrl()).startsWith("https://kzn.kudago.com/");
     }
 
     @Test
@@ -52,7 +52,7 @@ class CatalogEventTest {
 
     private ExternalEventData data(String id, boolean venue) {
         return new ExternalEventData(id, "Концерт", "Описание", List.of("concert"), "1000 ₽", false,
-                "12+", "http://kudago.com/kzn/event/test/", "7",
+                "12+", "http://kzn.kudago.com/event/test/", "7",
                 venue ? "Зал" : null, venue ? "ул. Баумана, 1" : null,
                 venue ? 55.79 : null, venue ? 49.12 : null,
                 List.of(new ExternalOccurrenceData("one", NOW.plusSeconds(3600), NOW.plusSeconds(7200), false)),

@@ -217,7 +217,9 @@ public class CatalogEvent {
     private static String requireKudaGoUrl(String value) {
         String normalized = requireText(value, "sourcePageUrl", 1000).replaceFirst("^http://", "https://");
         java.net.URI uri = java.net.URI.create(normalized);
-        if (!"https".equalsIgnoreCase(uri.getScheme()) || !"kudago.com".equalsIgnoreCase(uri.getHost())) {
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        if (!"https".equalsIgnoreCase(uri.getScheme())
+                || !(host.equals("kudago.com") || host.endsWith(".kudago.com"))) {
             throw new IllegalArgumentException("sourcePageUrl must point to kudago.com over HTTPS");
         }
         return normalized;

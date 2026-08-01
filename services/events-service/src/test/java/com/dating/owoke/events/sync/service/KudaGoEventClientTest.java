@@ -9,6 +9,9 @@ class KudaGoEventClientTest {
     void normalizesOnlyKudaGoHttpsLinks() {
         assertThat(KudaGoEventClient.normalizeKudaGoUrl("http://kudago.com/kzn/event/test/"))
                 .isEqualTo("https://kudago.com/kzn/event/test/");
+        assertThat(KudaGoEventClient.normalizeKudaGoUrl("https://kzn.kudago.com/event/test/"))
+                .isEqualTo("https://kzn.kudago.com/event/test/");
+        assertThat(KudaGoEventClient.normalizeKudaGoUrl("https://fake-kudago.com/event/test/")).isNull();
         assertThat(KudaGoEventClient.normalizeKudaGoUrl("https://example.com/event/test/")).isNull();
     }
 
