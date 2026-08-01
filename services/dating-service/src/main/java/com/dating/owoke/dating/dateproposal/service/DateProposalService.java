@@ -15,13 +15,15 @@ import com.dating.owoke.dating.couple.repository.CoupleMemberRepository;
 import com.dating.owoke.dating.couple.repository.CoupleRepository;
 import com.dating.owoke.dating.dateproposal.domain.DateProposal;
 import com.dating.owoke.dating.dateproposal.repository.DateProposalRepository;
+import com.dating.owoke.dating.eventprojection.domain.EventOccurrenceProjection;
+import com.dating.owoke.dating.eventprojection.repository.EventOccurrenceProjectionRepository;
 import com.dating.owoke.dating.placeprojection.domain.PlaceProjection;
 import com.dating.owoke.dating.placeprojection.repository.PlaceProjectionRepository;
 import com.dating.owoke.dating.shared.exception.BusinessConflictException;
 import com.dating.owoke.dating.shared.exception.ResourceNotFoundException;
 import com.dating.owoke.dating.shared.idempotency.service.IdempotencyService;
-import com.dating.owoke.dating.shared.messaging.event.DateProposalCreatedV2;
-import com.dating.owoke.dating.shared.messaging.event.DateProposalStatusChangedV2;
+import com.dating.owoke.dating.shared.messaging.event.DateProposalCreatedV3;
+import com.dating.owoke.dating.shared.messaging.event.DateProposalStatusChangedV3;
 import com.dating.owoke.dating.shared.messaging.service.OutboxService;
 
 @Service
@@ -33,6 +35,7 @@ public class DateProposalService {
     private final CoupleMemberRepository memberRepository;
     private final CoupleRepository coupleRepository;
     private final PlaceProjectionRepository placeRepository;
+    private final EventOccurrenceProjectionRepository eventOccurrenceRepository;
     private final IdempotencyService idempotencyService;
     private final OutboxService outboxService;
     private final Clock clock;
@@ -42,6 +45,7 @@ public class DateProposalService {
             CoupleMemberRepository memberRepository,
             CoupleRepository coupleRepository,
             PlaceProjectionRepository placeRepository,
+            EventOccurrenceProjectionRepository eventOccurrenceRepository,
             IdempotencyService idempotencyService,
             OutboxService outboxService,
             Clock clock
@@ -50,6 +54,7 @@ public class DateProposalService {
         this.memberRepository = memberRepository;
         this.coupleRepository = coupleRepository;
         this.placeRepository = placeRepository;
+        this.eventOccurrenceRepository = eventOccurrenceRepository;
         this.idempotencyService = idempotencyService;
         this.outboxService = outboxService;
         this.clock = clock;
@@ -98,22 +103,36 @@ public class DateProposalService {
         outboxService.enqueue(
                 DATING_EVENTS_TOPIC,
                 activeCouple.couple().getId().toString(),
-                "DateProposalCreatedV2",
-                2,
-                new DateProposalCreatedV2(
-                        proposal.getId(),
-                        proposal.getCoupleId(),
-                        proposal.getProposerId(),
-                        proposal.getResponderId(),
-                        proposal.getScheduledAt(),
-                        proposal.getTimezone(),
-                        proposal.getPlaceId(),
-                        proposal.getPlaceNameSnapshot(),
-                        proposal.getPlaceAddressSnapshot(),
-                        proposal.getPlaceCoverMediaIdSnapshot(),
-                        proposal.getDescription()));
+                "DateProposalCreatedV3", 3, createdEvent(proposal));
         idempotencyService.remember(
                 userId, "CREATE_DATE_PROPOSAL", idempotencyKey, requestMaterial, proposal.getId());
+        return details(proposal);
+    }
+
+    @Transactional
+    public DateProposalDetails createFromEvent(
+            UUID userId, UUID eventOccurrenceId, Instant visitAt, String description, String idempotencyKey) {
+        String requestMaterial = eventOccurrenceId + "|" + visitAt + "|" + normalize(description);
+        UUID existingId = idempotencyService.find(
+                userId, "CREATE_EVENT_DATE_PROPOSAL", idempotencyKey, requestMaterial).orElse(null);
+        if (existingId != null) return visibleProposal(existingId, userId);
+
+        ActiveCouple activeCouple = requireActiveCouple(userId);
+        Instant now = clock.instant();
+        EventOccurrenceProjection occurrence = requireUsableOccurrence(eventOccurrenceId);
+        Instant scheduledAt = resolveVisitTime(occurrence, visitAt, now);
+        var event = occurrence.getEvent();
+        UUID responderId = activeCouple.members().stream().map(CoupleMember::getUserId)
+                .filter(memberId -> !memberId.equals(userId)).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Active couple has no responder"));
+        DateProposal proposal = proposalRepository.save(DateProposal.forEvent(
+                activeCouple.couple().getId(), userId, responderId, scheduledAt, event.getLocalPlaceId(),
+                event.getVenueName(), event.getVenueAddress(), event.getCoverMediaId(), event.getId(),
+                occurrence.getId(), event.getTitle(), event.getSourcePageUrl(), event.getPriceText(), description, now));
+        outboxService.enqueue(DATING_EVENTS_TOPIC, proposal.getCoupleId().toString(),
+                "DateProposalCreatedV3", 3, createdEvent(proposal));
+        idempotencyService.remember(userId, "CREATE_EVENT_DATE_PROPOSAL", idempotencyKey,
+                requestMaterial, proposal.getId());
         return details(proposal);
     }
 
@@ -161,6 +180,11 @@ public class DateProposalService {
                 .filter(value -> value.getCoupleId().equals(activeCouple.couple().getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Date proposal was not found"));
 
+        if (action == Action.ACCEPT && proposal.getEventOccurrenceId() != null) {
+            EventOccurrenceProjection occurrence = requireUsableOccurrence(proposal.getEventOccurrenceId());
+            resolveVisitTime(occurrence, occurrence.isContinuous() ? proposal.getScheduledAt() : null, clock.instant());
+        }
+
         Instant now = clock.instant();
         switch (action) {
             case ACCEPT -> proposal.accept(userId, now);
@@ -171,7 +195,7 @@ public class DateProposalService {
                 DATING_EVENTS_TOPIC,
                 proposal.getCoupleId().toString(),
                 action.eventType,
-                2,
+                3,
                 statusEvent(proposal, userId, now));
         idempotencyService.remember(
                 userId, action.operation, idempotencyKey, requestMaterial, proposal.getId());
@@ -199,8 +223,8 @@ public class DateProposalService {
         return new ActiveCouple(couple, members);
     }
 
-    private static DateProposalStatusChangedV2 statusEvent(DateProposal proposal, UUID userId, Instant now) {
-        return new DateProposalStatusChangedV2(
+    private static DateProposalStatusChangedV3 statusEvent(DateProposal proposal, UUID userId, Instant now) {
+        return new DateProposalStatusChangedV3(
                 proposal.getId(),
                 proposal.getCoupleId(),
                 proposal.getProposerId(),
@@ -210,20 +234,55 @@ public class DateProposalService {
                 now,
                 proposal.getScheduledAt(),
                 proposal.getTimezone(),
+                proposal.getSelectionType().name(),
+                proposal.getPlaceId(),
                 proposal.getPlaceNameSnapshot(),
                 proposal.getPlaceAddressSnapshot(),
                 proposal.getPlaceCoverMediaIdSnapshot(),
+                proposal.getEventId(), proposal.getEventOccurrenceId(), proposal.getEventTitleSnapshot(),
+                proposal.getEventSourceUrlSnapshot(), proposal.getEventPriceSnapshot(),
                 proposal.getDescription());
+    }
+
+    private static DateProposalCreatedV3 createdEvent(DateProposal proposal) {
+        return new DateProposalCreatedV3(proposal.getId(), proposal.getCoupleId(), proposal.getProposerId(),
+                proposal.getResponderId(), proposal.getScheduledAt(), proposal.getTimezone(),
+                proposal.getSelectionType().name(), proposal.getPlaceId(), proposal.getPlaceNameSnapshot(),
+                proposal.getPlaceAddressSnapshot(), proposal.getPlaceCoverMediaIdSnapshot(), proposal.getEventId(),
+                proposal.getEventOccurrenceId(), proposal.getEventTitleSnapshot(), proposal.getEventSourceUrlSnapshot(),
+                proposal.getEventPriceSnapshot(), proposal.getDescription());
     }
 
     private static DateProposalDetails details(DateProposal proposal) {
         return new DateProposalDetails(
                 proposal.getId(), proposal.getCoupleId(), proposal.getProposerId(), proposal.getResponderId(),
-                proposal.getScheduledAt(), proposal.getTimezone(), proposal.getPlaceId(),
+                proposal.getScheduledAt(), proposal.getTimezone(), proposal.getSelectionType(), proposal.getPlaceId(),
                 proposal.getPlaceNameSnapshot(), proposal.getPlaceAddressSnapshot(),
-                proposal.getPlaceCoverMediaIdSnapshot(), proposal.getDescription(),
+                proposal.getPlaceCoverMediaIdSnapshot(), proposal.getEventId(), proposal.getEventOccurrenceId(),
+                proposal.getEventTitleSnapshot(), proposal.getEventSourceUrlSnapshot(), proposal.getEventPriceSnapshot(), proposal.getDescription(),
                 proposal.getStatus(), proposal.getCreatedAt(), proposal.getDecidedAt(), proposal.getCancelledAt(),
                 proposal.getVersion());
+    }
+
+    private EventOccurrenceProjection requireUsableOccurrence(UUID occurrenceId) {
+        return eventOccurrenceRepository.findDetailedById(occurrenceId)
+                .filter(EventOccurrenceProjection::isActive)
+                .filter(item -> item.getEvent().isActive())
+                .orElseThrow(() -> new BusinessConflictException("Selected event occurrence is unavailable"));
+    }
+
+    private static Instant resolveVisitTime(EventOccurrenceProjection occurrence, Instant visitAt, Instant now) {
+        if (!occurrence.isContinuous()) {
+            if (visitAt != null) throw new IllegalArgumentException("visitAt must be omitted for a fixed event session");
+            if (!occurrence.getStartsAt().isAfter(now)) throw new BusinessConflictException("Event session has already started");
+            return occurrence.getStartsAt();
+        }
+        if (visitAt == null) throw new IllegalArgumentException("visitAt is required for a continuous event");
+        if (!visitAt.isAfter(now) || visitAt.isBefore(occurrence.getStartsAt())
+                || (occurrence.getEndsAt() != null && visitAt.isAfter(occurrence.getEndsAt()))) {
+            throw new IllegalArgumentException("visitAt must be in the future and inside the event period");
+        }
+        return visitAt;
     }
 
     private static String normalize(String description) {
@@ -234,9 +293,9 @@ public class DateProposalService {
     }
 
     private enum Action {
-        ACCEPT("ACCEPT_DATE_PROPOSAL", "DateProposalAcceptedV2"),
-        DECLINE("DECLINE_DATE_PROPOSAL", "DateProposalDeclinedV2"),
-        CANCEL("CANCEL_DATE_PROPOSAL", "DateProposalCancelledV2");
+        ACCEPT("ACCEPT_DATE_PROPOSAL", "DateProposalAcceptedV3"),
+        DECLINE("DECLINE_DATE_PROPOSAL", "DateProposalDeclinedV3"),
+        CANCEL("CANCEL_DATE_PROPOSAL", "DateProposalCancelledV3");
 
         private final String operation;
         private final String eventType;

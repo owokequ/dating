@@ -1,6 +1,7 @@
 package com.dating.owoke.dating.couple;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -8,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -83,7 +86,8 @@ class CoupleInvitationIntegrationTest {
 
     @AfterEach
     void cleanDatabase() {
-        jdbcTemplate.execute("TRUNCATE TABLE failed_messages, inbox_events, idempotency_records, date_proposals, place_projections, "
+        jdbcTemplate.execute("TRUNCATE TABLE failed_messages, inbox_events, idempotency_records, date_proposals, "
+                + "event_occurrence_projections, event_projections, place_projections, "
                 + "outbox_events, couple_invitations, couple_members, couples CASCADE");
     }
 
@@ -219,7 +223,7 @@ class CoupleInvitationIntegrationTest {
                 .andExpect(jsonPath("$.placeCoverMediaId").value(coverMediaId.toString()));
 
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV2'", Integer.class))
+                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV3'", Integer.class))
                 .isEqualTo(1);
     }
 
@@ -251,6 +255,52 @@ class CoupleInvitationIntegrationTest {
     }
 
     @Test
+    void createsEventProposalFromFixedOccurrenceAndKeepsSnapshot() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID partnerId = UUID.randomUUID();
+        activateCouple(ownerId, partnerId);
+        UUID eventId = UUID.randomUUID();
+        UUID occurrenceId = UUID.randomUUID();
+        Instant startsAt = Instant.now().plusSeconds(86_400);
+        jdbcTemplate.update("""
+                INSERT INTO event_projections
+                    (id, title, description, price_text, source_page_url, venue_name, venue_address,
+                     latitude, longitude, status, updated_at, version, media_version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', now(), 0, 0)
+                """, eventId, "Джазовый концерт", "Описание", "от 1000 ₽",
+                "https://kudago.com/kzn/event/jazz/", "Концертный зал", "Казань, Баумана 1", 55.79, 49.12);
+        jdbcTemplate.update("""
+                INSERT INTO event_occurrence_projections
+                    (id, event_id, starts_at, ends_at, continuous, status, updated_at)
+                VALUES (?, ?, ?, ?, false, 'ACTIVE', now())
+                """, occurrenceId, eventId, Timestamp.from(startsAt), Timestamp.from(startsAt.plusSeconds(7200)));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/date-proposals/from-event")
+                        .header("Idempotency-Key", "event-proposal")
+                        .with(user(ownerId))
+                        .contentType("application/json")
+                        .content("""
+                                {"eventOccurrenceId":"%s","description":"Пойдём вместе"}
+                                """.formatted(occurrenceId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.selectionType").value("EVENT"))
+                .andExpect(jsonPath("$.eventTitle").value("Джазовый концерт"))
+                .andExpect(jsonPath("$.placeName").value("Концертный зал"))
+                .andReturn();
+        DateProposalResponse proposal = objectMapper.readValue(
+                result.getResponse().getContentAsString(), DateProposalResponse.class);
+        assertThat(proposal.scheduledAt()).isCloseTo(startsAt, within(1, ChronoUnit.MICROS));
+
+        jdbcTemplate.update("UPDATE event_projections SET title='Другое название', version=version+1 WHERE id=?", eventId);
+        mockMvc.perform(get("/api/v1/date-proposals/{id}", proposal.id()).with(user(ownerId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eventTitle").value("Джазовый концерт"));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM outbox_events WHERE event_type='DateProposalCreatedV3'", Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
     void telegramDecisionCommandAcceptsProposalAndIsIdempotent() throws Exception {
         UUID ownerId = UUID.randomUUID();
         UUID partnerId = UUID.randomUUID();
@@ -273,7 +323,7 @@ class CoupleInvitationIntegrationTest {
                 "SELECT count(*) FROM inbox_events WHERE event_id = ?", Integer.class, commandId))
                 .isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV2'", Integer.class))
+                "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalAcceptedV3'", Integer.class))
                 .isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM outbox_events WHERE event_type = 'DateProposalDecisionResultV1'", Integer.class))

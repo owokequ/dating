@@ -32,14 +32,27 @@ public class DateProposal {
     private Instant scheduledAt;
     @Column(nullable = false, updatable = false, length = 64)
     private String timezone;
-    @Column(name = "place_id", nullable = false, updatable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "selection_type", nullable = false, updatable = false, length = 16)
+    private DateSelectionType selectionType;
+    @Column(name = "place_id", updatable = false)
     private UUID placeId;
-    @Column(name = "place_name_snapshot", nullable = false, updatable = false, length = 200)
+    @Column(name = "place_name_snapshot", nullable = false, updatable = false, length = 300)
     private String placeNameSnapshot;
     @Column(name = "place_address_snapshot", nullable = false, updatable = false, length = 500)
     private String placeAddressSnapshot;
     @Column(name = "place_cover_media_id_snapshot", updatable = false)
     private UUID placeCoverMediaIdSnapshot;
+    @Column(name = "event_id", updatable = false)
+    private UUID eventId;
+    @Column(name = "event_occurrence_id", updatable = false)
+    private UUID eventOccurrenceId;
+    @Column(name = "event_title_snapshot", updatable = false, length = 300)
+    private String eventTitleSnapshot;
+    @Column(name = "event_source_url_snapshot", updatable = false, length = 1000)
+    private String eventSourceUrlSnapshot;
+    @Column(name = "event_price_snapshot", updatable = false, length = 500)
+    private String eventPriceSnapshot;
     @Column(updatable = false, length = 1000)
     private String description;
     @Enumerated(EnumType.STRING)
@@ -81,13 +94,54 @@ public class DateProposal {
         }
         this.scheduledAt = Objects.requireNonNull(scheduledAt);
         this.timezone = DEFAULT_TIMEZONE;
+        this.selectionType = DateSelectionType.PLACE;
         this.placeId = Objects.requireNonNull(placeId);
-        this.placeNameSnapshot = requireText(placeNameSnapshot, 200, "placeNameSnapshot");
+        this.placeNameSnapshot = requireText(placeNameSnapshot, 300, "placeNameSnapshot");
         this.placeAddressSnapshot = requireText(placeAddressSnapshot, 500, "placeAddressSnapshot");
         this.placeCoverMediaIdSnapshot = placeCoverMediaIdSnapshot;
         this.description = normalizeDescription(description);
         this.status = DateProposalStatus.PENDING_CONFIRMATION;
         this.createdAt = Objects.requireNonNull(now);
+    }
+
+    public static DateProposal forEvent(
+            UUID coupleId,
+            UUID proposerId,
+            UUID responderId,
+            Instant scheduledAt,
+            UUID localPlaceId,
+            String venueName,
+            String venueAddress,
+            UUID coverMediaId,
+            UUID eventId,
+            UUID eventOccurrenceId,
+            String eventTitle,
+            String eventSourceUrl,
+            String eventPrice,
+            String description,
+            Instant now) {
+        DateProposal proposal = new DateProposal();
+        proposal.id = UUID.randomUUID();
+        proposal.coupleId = Objects.requireNonNull(coupleId);
+        proposal.proposerId = Objects.requireNonNull(proposerId);
+        proposal.responderId = Objects.requireNonNull(responderId);
+        if (proposerId.equals(responderId)) throw new IllegalArgumentException("proposer and responder must be different users");
+        proposal.scheduledAt = Objects.requireNonNull(scheduledAt);
+        proposal.timezone = DEFAULT_TIMEZONE;
+        proposal.selectionType = DateSelectionType.EVENT;
+        proposal.placeId = localPlaceId;
+        proposal.placeNameSnapshot = requireText(venueName, 300, "venueName");
+        proposal.placeAddressSnapshot = requireText(venueAddress, 500, "venueAddress");
+        proposal.placeCoverMediaIdSnapshot = coverMediaId;
+        proposal.eventId = Objects.requireNonNull(eventId);
+        proposal.eventOccurrenceId = Objects.requireNonNull(eventOccurrenceId);
+        proposal.eventTitleSnapshot = requireText(eventTitle, 300, "eventTitle");
+        proposal.eventSourceUrlSnapshot = requireText(eventSourceUrl, 1000, "eventSourceUrl");
+        proposal.eventPriceSnapshot = eventPrice == null ? null : requireText(eventPrice, 500, "eventPrice");
+        proposal.description = normalizeDescription(description);
+        proposal.status = DateProposalStatus.PENDING_CONFIRMATION;
+        proposal.createdAt = Objects.requireNonNull(now);
+        return proposal;
     }
 
     public void accept(UUID actorId, Instant now) {
@@ -156,6 +210,8 @@ public class DateProposal {
         return timezone;
     }
 
+    public DateSelectionType getSelectionType() { return selectionType; }
+
     public UUID getPlaceId() {
         return placeId;
     }
@@ -171,6 +227,12 @@ public class DateProposal {
     public UUID getPlaceCoverMediaIdSnapshot() {
         return placeCoverMediaIdSnapshot;
     }
+
+    public UUID getEventId() { return eventId; }
+    public UUID getEventOccurrenceId() { return eventOccurrenceId; }
+    public String getEventTitleSnapshot() { return eventTitleSnapshot; }
+    public String getEventSourceUrlSnapshot() { return eventSourceUrlSnapshot; }
+    public String getEventPriceSnapshot() { return eventPriceSnapshot; }
 
     public String getDescription() {
         return description;

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dating.owoke.dating.dateproposal.dto.CreateDateProposalRequest;
+import com.dating.owoke.dating.dateproposal.dto.CreateEventDateProposalRequest;
 import com.dating.owoke.dating.dateproposal.dto.DateProposalResponse;
 import com.dating.owoke.dating.dateproposal.mapper.DateProposalMapper;
 import com.dating.owoke.dating.dateproposal.service.DateProposalService;
@@ -39,6 +40,18 @@ public class DateProposalController {
         this.proposalService = proposalService;
         this.mapper = mapper;
         this.userIdResolver = userIdResolver;
+    }
+
+    @PostMapping("/from-event")
+    public ResponseEntity<DateProposalResponse> createFromEvent(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody CreateEventDateProposalRequest request
+    ) {
+        DateProposalResponse response = mapper.toResponse(proposalService.createFromEvent(
+                userIdResolver.resolve(jwt), request.eventOccurrenceId(), request.visitAt(),
+                request.description(), idempotencyKey));
+        return ResponseEntity.created(URI.create("/api/v1/date-proposals/" + response.id())).body(response);
     }
 
     @PostMapping

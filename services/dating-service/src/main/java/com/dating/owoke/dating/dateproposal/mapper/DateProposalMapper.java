@@ -11,8 +11,9 @@ public class DateProposalMapper {
     public DateProposalResponse toResponse(DateProposalDetails details) {
         return new DateProposalResponse(
                 details.id(), details.coupleId(), details.proposerId(), details.responderId(),
-                details.scheduledAt(), details.timezone(), details.placeId(), details.placeName(),
-                details.placeAddress(), details.placeCoverMediaId(), details.description(), details.status(), details.createdAt(),
+                details.scheduledAt(), details.timezone(), details.selectionType(), details.placeId(), details.placeName(),
+                details.placeAddress(), details.placeCoverMediaId(), details.eventId(), details.eventOccurrenceId(),
+                details.eventTitle(), details.eventSourceUrl(), details.eventPrice(), details.description(), details.status(), details.createdAt(),
                 details.decidedAt(), details.cancelledAt(), details.version());
     }
 }

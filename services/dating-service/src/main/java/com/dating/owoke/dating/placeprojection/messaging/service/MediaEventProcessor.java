@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dating.owoke.dating.placeprojection.messaging.domain.MediaCollectionChangedV1;
+import com.dating.owoke.dating.placeprojection.messaging.domain.MediaCollectionChangedV2;
 import com.dating.owoke.dating.placeprojection.service.PlaceProjectionService;
+import com.dating.owoke.dating.eventprojection.service.EventProjectionService;
 import com.dating.owoke.dating.shared.messaging.domain.InboxEvent;
 import com.dating.owoke.dating.shared.messaging.domain.IncomingEventEnvelope;
 import com.dating.owoke.dating.shared.messaging.repository.InboxEventRepository;
@@ -19,20 +21,23 @@ import tools.jackson.databind.ObjectMapper;
 public class MediaEventProcessor {
 
     private static final Set<String> SUPPORTED_EVENTS = Set.of(
-            "MediaAssetReadyV1", "MediaCollectionChangedV1", "MediaAssetDeletedV1");
+            "MediaAssetReadyV1", "MediaCollectionChangedV1", "MediaAssetDeletedV1", "MediaCollectionChangedV2");
 
     private final InboxEventRepository inboxRepository;
     private final PlaceProjectionService projectionService;
+    private final EventProjectionService eventProjectionService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
     public MediaEventProcessor(
             InboxEventRepository inboxRepository,
             PlaceProjectionService projectionService,
+            EventProjectionService eventProjectionService,
             ObjectMapper objectMapper,
             Clock clock) {
         this.inboxRepository = inboxRepository;
         this.projectionService = projectionService;
+        this.eventProjectionService = eventProjectionService;
         this.objectMapper = objectMapper;
         this.clock = clock;
     }
@@ -51,6 +56,14 @@ public class MediaEventProcessor {
                 projectionService.updateMedia(
                         payload.ownerId(), payload.coverMediaId(), payload.collectionVersion());
             }
+        } else if ("MediaCollectionChangedV2".equals(envelope.eventType())) {
+            MediaCollectionChangedV2 payload = objectMapper.treeToValue(
+                    envelope.payload(), MediaCollectionChangedV2.class);
+            if ("PLACE".equals(payload.ownerType())) {
+                projectionService.updateMedia(payload.ownerId(), payload.coverMediaId(), payload.collectionVersion());
+            } else if ("EVENT".equals(payload.ownerType())) {
+                eventProjectionService.updateMedia(payload.ownerId(), payload.coverMediaId(), payload.collectionVersion());
+            }
         }
         inboxRepository.saveAndFlush(new InboxEvent(
                 envelope.eventId(), envelope.eventType(), topic, clock.instant()));
@@ -68,7 +81,9 @@ public class MediaEventProcessor {
         if (envelope.eventId() == null || envelope.payload() == null || envelope.occurredAt() == null) {
             throw new IllegalArgumentException("Media event is missing required envelope fields");
         }
-        if (envelope.eventVersion() != 1 || !SUPPORTED_EVENTS.contains(envelope.eventType())) {
+        boolean supportedVersion = envelope.eventVersion() == 1
+                || (envelope.eventVersion() == 2 && "MediaCollectionChangedV2".equals(envelope.eventType()));
+        if (!supportedVersion || !SUPPORTED_EVENTS.contains(envelope.eventType())) {
             throw new IllegalArgumentException("Unsupported media event type or version");
         }
     }

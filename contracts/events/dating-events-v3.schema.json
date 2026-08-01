@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/dating-events-v3.schema.json",
+  "title": "Owoke dating events v3",
+  "oneOf": [
+    { "$ref": "#/$defs/dateProposalCreated" },
+    { "$ref": "#/$defs/dateProposalStatusChanged" }
+  ],
+  "$defs": {
+    "envelope": {
+      "type": "object",
+      "required": ["eventId", "eventType", "eventVersion", "aggregateId", "occurredAt", "correlationId", "payload"],
+      "properties": {
+        "eventId": { "type": "string", "format": "uuid" },
+        "eventType": { "type": "string" },
+        "eventVersion": { "const": 3 },
+        "aggregateId": { "type": "string", "format": "uuid" },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "correlationId": { "type": "string", "format": "uuid" },
+        "payload": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "proposalPayload": {
+      "type": "object",
+      "required": ["proposalId", "coupleId", "proposerId", "responderId", "scheduledAt", "timezone", "selectionType", "placeName", "placeAddress"],
+      "properties": {
+        "proposalId": { "type": "string", "format": "uuid" },
+        "coupleId": { "type": "string", "format": "uuid" },
+        "proposerId": { "type": "string", "format": "uuid" },
+        "responderId": { "type": "string", "format": "uuid" },
+        "scheduledAt": { "type": "string", "format": "date-time" },
+        "timezone": { "type": "string" },
+        "selectionType": { "enum": ["PLACE", "EVENT"] },
+        "placeId": { "type": ["string", "null"], "format": "uuid" },
+        "placeName": { "type": "string" },
+        "placeAddress": { "type": "string" },
+        "coverMediaId": { "type": ["string", "null"], "format": "uuid" },
+        "eventId": { "type": ["string", "null"], "format": "uuid" },
+        "eventOccurrenceId": { "type": ["string", "null"], "format": "uuid" },
+        "eventTitle": { "type": ["string", "null"] },
+        "eventSourceUrl": { "type": ["string", "null"], "format": "uri" },
+        "eventPrice": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "changedBy": { "type": "string", "format": "uuid" },
+        "changedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "dateProposalCreated": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "eventType": { "const": "DateProposalCreatedV3" }, "payload": { "$ref": "#/$defs/proposalPayload" } } }
+      ]
+    },
+    "dateProposalStatusChanged": {
+      "allOf": [
+        { "$ref": "#/$defs/envelope" },
+        { "properties": { "eventType": { "enum": ["DateProposalAcceptedV3", "DateProposalDeclinedV3", "DateProposalCancelledV3"] }, "payload": { "$ref": "#/$defs/proposalPayload" } } }
+      ]
+    }
+  }
+}

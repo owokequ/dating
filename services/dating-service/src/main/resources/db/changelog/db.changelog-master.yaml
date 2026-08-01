@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/changes/004-add-place-media-snapshot.yaml
   - include:
       file: db/changelog/changes/005-add-draft-place-projection.yaml
+  - include:
+      file: db/changelog/changes/006-add-event-projection-and-proposals.yaml
