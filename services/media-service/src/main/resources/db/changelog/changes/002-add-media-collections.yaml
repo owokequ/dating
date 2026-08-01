@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-add-media-collections
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE media_collections (
+                  owner_id UUID PRIMARY KEY,
+                  owner_type VARCHAR(32) NOT NULL,
+                  revision BIGINT NOT NULL DEFAULT 0,
+                  updated_at TIMESTAMPTZ NOT NULL,
+                  version BIGINT NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_media_collection_owner_type CHECK (owner_type IN ('PLACE'))
+              );
