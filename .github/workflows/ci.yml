@@ -12,7 +12,7 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -27,7 +27,7 @@ jobs:
       run:
         working-directory: web-app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -69,7 +69,7 @@ jobs:
       NOTIFICATION_FROM_EMAIL: noreply@example.com
       GRAFANA_ADMIN_PASSWORD: ci-password
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate JSON contracts
         run: for schema in contracts/events/*.json; do python -m json.tool "$schema" >/dev/null; done
       - name: Validate Compose files
@@ -86,7 +86,7 @@ jobs:
       matrix:
         module: [api-gateway, identity-service, dating-service, notification-service, places-service, media-service, events-service]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -101,7 +101,7 @@ jobs:
     needs: [frontend, contracts-and-compose]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -118,7 +118,7 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
