@@ -24,10 +24,14 @@ export function AppLayout() {
           {session.data ? (
             <>
               <a href="/places">Места</a>
+              <a href="/events">Афиша</a>
               <a href="/couple">Пара</a>
               <a href="/notifications">Уведомления</a>
               <a href="/settings">Настройки</a>
-              {session.data.role === 'ADMIN' && <a className="admin-link" href="/admin/places">Admin</a>}
+              {session.data.role === 'ADMIN' && <>
+                <a className="admin-link" href="/admin/places">Admin · места</a>
+                <a className="admin-link" href="/admin/events">Admin · афиша</a>
+              </>}
               <button className="link-button" onClick={() => logoutMutation.mutate()}>Выйти</button>
             </>
           ) : (

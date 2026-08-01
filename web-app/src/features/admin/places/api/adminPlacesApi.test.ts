@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Place } from '../../../places/api/placesApi'
-import { getAdminPlaces, savePlaceModeration, syncTwoGis } from './adminPlacesApi'
+import { getAdminPlaces, savePlaceModeration, syncKudaGo, syncTwoGis } from './adminPlacesApi'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -34,7 +34,20 @@ describe('adminPlacesApi', () => {
 
     await expect(syncTwoGis()).resolves.toEqual(result)
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/admin/places/sync',
+      '/api/v1/admin/places/sync/2gis',
+      expect.objectContaining({ method: 'POST', credentials: 'include' }),
+    )
+  })
+
+  it('uses the dedicated KudaGo synchronization endpoint', async () => {
+    vi.stubGlobal('document', { cookie: 'XSRF-TOKEN=csrf-token' })
+    const result = { received: 30, created: 30, updated: 0, unchanged: 0, duplicates: 0, failures: [] }
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(result))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(syncKudaGo()).resolves.toEqual(result)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/admin/places/sync/kudago',
       expect.objectContaining({ method: 'POST', credentials: 'include' }),
     )
   })
@@ -52,6 +65,10 @@ describe('adminPlacesApi', () => {
       longitude: 49.10,
       priceLevel: null,
       source: 'TWO_GIS',
+      sourcePageUrl: null,
+      attributionName: '2GIS',
+      providerDescription: null,
+      descriptionOverridden: false,
       status: 'DRAFT',
       coverMediaId: null,
       images: [],

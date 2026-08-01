@@ -27,7 +27,7 @@ export function DateDetailsPage() {
 
   return (
     <section>
-      <PageTitle eyebrow="Свидание" title={proposal.data.placeName}>{formatDateTime(proposal.data.scheduledAt)}</PageTitle>
+      <PageTitle eyebrow="Свидание" title={proposal.data.eventTitle || proposal.data.placeName}>{formatDateTime(proposal.data.scheduledAt)}</PageTitle>
       <article className="panel date-detail">
         <img className="date-detail-cover"
           src={proposal.data.placeCoverMediaId
@@ -36,6 +36,8 @@ export function DateDetailsPage() {
           alt={`Обложка места ${proposal.data.placeName}`} />
         <span className={`status ${proposal.data.status.toLowerCase()}`}>{proposal.data.status.replaceAll('_', ' ')}</span>
         <address>{proposal.data.placeAddress}</address>
+        {proposal.data.eventPrice && <p><strong>{proposal.data.eventPrice}</strong></p>}
+        {proposal.data.eventSourceUrl && <a className="source-link" href={proposal.data.eventSourceUrl} target="_blank" rel="noopener noreferrer">Источник: KudaGo ↗</a>}
         {proposal.data.description && <blockquote>{proposal.data.description}</blockquote>}
         <dl>
           <div><dt>Часовой пояс</dt><dd>{proposal.data.timezone}</dd></div>

@@ -12,7 +12,7 @@ export function PlacesPage() {
 
   return (
     <section>
-      <PageTitle eyebrow="Казань" title="Куда пойдём?">Каталог ручных подборок и разрешённых данных 2GIS.</PageTitle>
+      <PageTitle eyebrow="Казань" title="Куда пойдём?">Ручные подборки и проверенные карточки внешних каталогов.</PageTitle>
       <div className="filters panel">
         <input aria-label="Поиск мест" placeholder="Название или адрес" value={query} onChange={(event) => setQuery(event.target.value)} />
         <select aria-label="Категория" value={category} onChange={(event) => setCategory(event.target.value)}>
@@ -37,6 +37,7 @@ export function PlacesPage() {
                   <a className="button small" href={`/dates/new?placeId=${place.id}`}>Выбрать</a>
                 </div>
               </div>
+              {place.sourcePageUrl && <a className="source-link" href={place.sourcePageUrl} target="_blank" rel="noopener noreferrer">Источник: {place.attributionName || place.source} ↗</a>}
             </article>
           ))}
         </div>

@@ -10,7 +10,11 @@ export type Place = {
   latitude: number
   longitude: number
   priceLevel: number | null
-  source: 'MANUAL' | 'TWO_GIS'
+  source: 'MANUAL' | 'TWO_GIS' | 'KUDAGO'
+  sourcePageUrl?: string | null
+  attributionName?: string | null
+  providerDescription?: string | null
+  descriptionOverridden?: boolean
   status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
   coverMediaId: string | null
   images: PlaceImage[]
@@ -23,6 +27,9 @@ export type PlaceImage = {
   thumbnailUrl: string
   cardUrl: string
   detailUrl: string
+  source?: 'UPLOAD' | 'REMOTE_URL'
+  sourceName?: string | null
+  sourceLink?: string | null
 }
 
 export type PlacePage = { items: Place[]; page: number; size: number; totalElements: number; totalPages: number }

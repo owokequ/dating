@@ -28,6 +28,7 @@ export function PlaceDetailsPage() {
             <span>{images.length} фото</span>
           </div>
           <a className="button" href={`/dates/new?placeId=${place.data.id}`}>Предложить свидание 💌</a>
+          {place.data.sourcePageUrl && <a className="source-link" href={place.data.sourcePageUrl} target="_blank" rel="noopener noreferrer">Источник: {place.data.attributionName || place.data.source} ↗</a>}
         </article>
         {images.length > 1 && <div className="place-gallery">
           {images.map((image, index) => <img key={image.mediaId} src={image.detailUrl}

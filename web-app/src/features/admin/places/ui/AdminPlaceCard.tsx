@@ -3,8 +3,8 @@ import { useCallback, useState } from 'react'
 import type { Place } from '../../../places/api/placesApi'
 import { ErrorMessage } from '../../../../shared/ui/Feedback'
 import { savePlaceModeration, type PlaceStatus } from '../api/adminPlacesApi'
-import type { MediaCollection } from '../api/adminMediaApi'
-import { PlaceMediaManager } from './PlaceMediaManager'
+import type { MediaCollection } from '../../media/api/adminMediaApi'
+import { MediaManager } from '../../media/ui/MediaManager'
 
 type Props = {
   place: Place
@@ -43,7 +43,7 @@ export function AdminPlaceCard({ place, onChanged }: Props) {
           <div className="admin-place-badges">
             <span className="eyebrow">{place.category}</span>
             <span className={`status ${place.status.toLowerCase()}`}>{place.status}</span>
-            <span className="status">{place.source === 'TWO_GIS' ? '2GIS' : 'Вручную'}</span>
+            <span className="status">{place.source === 'TWO_GIS' ? '2GIS' : place.source === 'KUDAGO' ? 'KudaGo' : 'Вручную'}</span>
           </div>
           <h3>{place.name}</h3>
           <address>{place.address}</address>
@@ -70,18 +70,20 @@ export function AdminPlaceCard({ place, onChanged }: Props) {
               ))}
             </select>
           </label>
-          {place.source === 'TWO_GIS' && (
+          {place.source !== 'MANUAL' && (
             <p className="muted admin-provider-note">
-              Название, адрес, координаты и категория принадлежат 2GIS и обновляются только синхронизацией.
+              Название, адрес, координаты и категория принадлежат provider и обновляются только синхронизацией.
+              {place.sourcePageUrl && <> <a className="source-link" href={place.sourcePageUrl} target="_blank" rel="noopener noreferrer">Открыть источник ↗</a></>}
             </p>
           )}
         </div>
       )}
 
       {canEdit && (
-        <PlaceMediaManager
-          placeId={place.id}
-          placeName={place.name}
+        <MediaManager
+          ownerType="PLACE"
+          ownerId={place.id}
+          ownerName={place.name}
           onCollectionChange={onCollectionChange}
         />
       )}

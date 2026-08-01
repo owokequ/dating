@@ -9,7 +9,7 @@ export type SyncFailure = {
   reason: string
 }
 
-export type TwoGisSyncResult = {
+export type ProviderSyncResult = {
   received: number
   created: number
   updated: number
@@ -44,8 +44,13 @@ export function getAdminPlaces(status: PlaceStatus, page = 0) {
   return apiRequest<PlacePage>(`/api/v1/admin/places?${params}`)
 }
 
-export const syncTwoGis = () => apiRequest<TwoGisSyncResult>(
-  '/api/v1/admin/places/sync',
+export const syncTwoGis = () => apiRequest<ProviderSyncResult>(
+  '/api/v1/admin/places/sync/2gis',
+  { method: 'POST' },
+)
+
+export const syncKudaGo = () => apiRequest<ProviderSyncResult>(
+  '/api/v1/admin/places/sync/kudago',
   { method: 'POST' },
 )
 

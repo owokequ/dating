@@ -15,6 +15,9 @@ import { PlaceDetailsPage } from '../features/places/pages/PlaceDetailsPage'
 import { SettingsPage } from '../features/settings/pages/SettingsPage'
 import { NotificationsPage } from '../features/notifications/pages/NotificationsPage'
 import { AdminPlacesPage } from '../features/admin/places/pages/AdminPlacesPage'
+import { EventsPage } from '../features/events/pages/EventsPage'
+import { EventDetailsPage } from '../features/events/pages/EventDetailsPage'
+import { AdminEventsPage } from '../features/admin/events/pages/AdminEventsPage'
 
 const rootRoute = createRootRoute({
   component: AppLayout,
@@ -44,9 +47,12 @@ const routeTree = rootRoute.addChildren([
   route('/dates/$dateId', DateDetailsPage),
   route('/places', PlacesPage),
   route('/places/$placeId', PlaceDetailsPage),
+  route('/events', EventsPage),
+  route('/events/$eventId', EventDetailsPage),
   route('/settings', SettingsPage),
   route('/notifications', NotificationsPage),
   route('/admin/places', AdminPlacesPage),
+  route('/admin/events', AdminEventsPage),
 ])
 
 export const router = createRouter({ routeTree, defaultPreload: 'intent' })

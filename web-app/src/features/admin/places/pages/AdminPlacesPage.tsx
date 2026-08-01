@@ -8,10 +8,11 @@ import { useSession } from '../../../auth/api/authApi'
 import {
   createPlace,
   getAdminPlaces,
+  syncKudaGo,
   syncTwoGis,
   type PlaceStatus,
 } from '../api/adminPlacesApi'
-import { uploadPlaceImageWhenProjectionIsReady } from '../api/adminMediaApi'
+import { uploadPlaceImageWhenProjectionIsReady } from '../../media/api/adminMediaApi'
 import { adminPlaceSchema, placeCategories } from '../schemas'
 import { AdminPlaceCard } from '../ui/AdminPlaceCard'
 import { PlaceImagePicker } from '../ui/PlaceImagePicker'
@@ -47,8 +48,15 @@ export function AdminPlacesPage() {
     queryFn: () => getAdminPlaces(status),
     enabled: isAdmin,
   })
-  const sync = useMutation({
+  const twoGisSync = useMutation({
     mutationFn: syncTwoGis,
+    onSuccess: async () => {
+      setStatus('DRAFT')
+      await queryClient.invalidateQueries({ queryKey: ['admin-places'] })
+    },
+  })
+  const kudaGoSync = useMutation({
+    mutationFn: syncKudaGo,
     onSuccess: async () => {
       setStatus('DRAFT')
       await queryClient.invalidateQueries({ queryKey: ['admin-places'] })
@@ -107,31 +115,39 @@ export function AdminPlacesPage() {
   return (
     <section>
       <PageTitle eyebrow="Admin" title="Управление местами">
-        Импортируйте места из 2GIS в черновики, добавьте собственные фотографии и публикуйте только проверенные карточки.
+        Импортируйте места в черновики, проверяйте данные и публикуйте только готовые карточки.
       </PageTitle>
       <section className="panel admin-sync-panel">
         <div>
-          <h2>Импорт из 2GIS</h2>
-          <p className="muted">Ручная синхронизация получает кафе, рестораны и развлечения Казани. Новые места не видны пользователям до публикации.</p>
+          <h2>Импорт внешних каталогов</h2>
+          <p className="muted">KudaGo загружает 30 популярных мест Казани. 2GIS остаётся опциональным provider. Новые места не видны пользователям до публикации.</p>
         </div>
-        <button type="button" disabled={sync.isPending} onClick={() => sync.mutate()}>
-          {sync.isPending ? 'Синхронизируем…' : 'Синхронизировать с 2GIS'}
-        </button>
-        {sync.data && (
+        <div className="button-row admin-sync-actions">
+          <button type="button" disabled={kudaGoSync.isPending || twoGisSync.isPending} onClick={() => kudaGoSync.mutate()}>
+            {kudaGoSync.isPending ? 'Синхронизируем…' : 'Синхронизировать KudaGo'}
+          </button>
+          <button className="secondary" type="button" disabled={kudaGoSync.isPending || twoGisSync.isPending} onClick={() => twoGisSync.mutate()}>
+            {twoGisSync.isPending ? 'Синхронизируем…' : 'Синхронизировать 2GIS'}
+          </button>
+        </div>
+        {(kudaGoSync.data || twoGisSync.data) && (() => {
+          const result = kudaGoSync.data ?? twoGisSync.data!
+          return <>
           <div className="sync-result" role="status">
-            <span>Получено: <strong>{sync.data.received}</strong></span>
-            <span>Создано: <strong>{sync.data.created}</strong></span>
-            <span>Обновлено: <strong>{sync.data.updated}</strong></span>
-            <span>Без изменений: <strong>{sync.data.unchanged}</strong></span>
-            <span>Дубликаты: <strong>{sync.data.duplicates}</strong></span>
+            <span>Получено: <strong>{result.received}</strong></span>
+            <span>Создано: <strong>{result.created}</strong></span>
+            <span>Обновлено: <strong>{result.updated}</strong></span>
+            <span>Без изменений: <strong>{result.unchanged}</strong></span>
+            <span>Дубликаты: <strong>{result.duplicates}</strong></span>
           </div>
-        )}
-        {sync.data?.failures.map((failure) => (
+          {result.failures.map((failure) => (
           <p className="message warning" key={`${failure.category}-${failure.page}`}>
             {failure.category}, страница {failure.page}: {failure.reason}
           </p>
-        ))}
-        <ErrorMessage error={sync.error} />
+          ))}
+          </>
+        })()}
+        <ErrorMessage error={kudaGoSync.error ?? twoGisSync.error} />
       </section>
       <div className="admin-grid">
         <form className="panel admin-place-form" onSubmit={form.handleSubmit((values) => create.mutate({ values, images }))}>

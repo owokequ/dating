@@ -29,10 +29,10 @@ export function DashboardPage() {
         <div className="panel callout"><div><h2>Ждём партнёра</h2><p>Перешлите приглашение, чтобы активировать пару.</p></div><a className="button" href="/couple">Открыть приглашение</a></div>
       ) : (
         <>
-          <div className="quick-actions"><a href="/dates/new">＋ Предложить свидание</a><a href="/places">⌖ Выбрать место</a><a href="/couple">♡ Ваша пара</a></div>
+          <div className="quick-actions"><a href="/dates/new">＋ Предложить свидание</a><a href="/places">⌖ Выбрать место</a><a href="/events">✦ Открыть афишу</a><a href="/couple">♡ Ваша пара</a></div>
           <div className="section-heading"><h2>Ближайшие планы</h2><a href="/places">Смотреть места</a></div>
           {upcoming.length ? <div className="date-list">{upcoming.map((date) => (
-            <a className="date-card" href={`/dates/${date.id}`} key={date.id}><span className={`status ${date.status.toLowerCase()}`}>{date.status === 'ACCEPTED' ? 'Подтверждено' : 'Ждёт ответа'}</span><h3>{date.placeName}</h3><strong>{formatDateTime(date.scheduledAt)}</strong><small>{date.placeAddress}</small></a>
+            <a className="date-card" href={`/dates/${date.id}`} key={date.id}><span className={`status ${date.status.toLowerCase()}`}>{date.status === 'ACCEPTED' ? 'Подтверждено' : 'Ждёт ответа'}</span><h3>{date.eventTitle || date.placeName}</h3><strong>{formatDateTime(date.scheduledAt)}</strong><small>{date.placeAddress}</small></a>
           ))}</div> : <div className="panel empty-state"><h2>Планов пока нет</h2><p>Каталог уже ждёт — выберите место для первой встречи.</p><a className="button" href="/places">Найти место</a></div>}
         </>
       )}

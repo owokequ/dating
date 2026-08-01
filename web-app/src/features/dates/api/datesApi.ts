@@ -8,10 +8,16 @@ export type DateProposal = {
   responderId: string
   scheduledAt: string
   timezone: 'Europe/Moscow'
-  placeId: string
+  selectionType: 'PLACE' | 'EVENT'
+  placeId: string | null
   placeName: string
   placeAddress: string
   placeCoverMediaId: string | null
+  eventId: string | null
+  eventOccurrenceId: string | null
+  eventTitle: string | null
+  eventSourceUrl: string | null
+  eventPrice: string | null
   description: string | null
   status: DateStatus
   createdAt: string
@@ -24,6 +30,12 @@ export const listDates = () => apiRequest<DateProposal[]>('/api/v1/date-proposal
 export const getDate = (id: string) => apiRequest<DateProposal>(`/api/v1/date-proposals/${id}`)
 export const createDate = (input: { scheduledAt: string; placeId: string; description?: string }) =>
   apiRequest<DateProposal>('/api/v1/date-proposals', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey() },
+    body: jsonBody(input),
+  })
+export const createDateFromEvent = (input: { eventOccurrenceId: string; visitAt?: string; description?: string }) =>
+  apiRequest<DateProposal>('/api/v1/date-proposals/from-event', {
     method: 'POST',
     headers: { 'Idempotency-Key': idempotencyKey() },
     body: jsonBody(input),
