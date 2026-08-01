@@ -87,7 +87,7 @@ jobs:
         module: [api-gateway, identity-service, dating-service, notification-service, places-service, media-service, events-service]
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v6
         with:
           context: .
