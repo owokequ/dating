@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-add-external-provider-fields
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE places RENAME COLUMN description TO description_override;
+              ALTER TABLE places ADD COLUMN provider_description VARCHAR(2000);
+              ALTER TABLE places ADD COLUMN source_page_url VARCHAR(1000);
+              ALTER TABLE places ADD COLUMN provider_media_fingerprint VARCHAR(64);
+
+              ALTER TABLE places DROP CONSTRAINT ck_place_source;
+              ALTER TABLE places ADD CONSTRAINT ck_place_source
+                  CHECK (source IN ('MANUAL', 'TWO_GIS', 'KUDAGO'));
+
+              ALTER TABLE places DROP CONSTRAINT ck_external_source;
+              ALTER TABLE places ADD CONSTRAINT ck_external_source CHECK (
+                  (source = 'MANUAL' AND external_id IS NULL AND source_page_url IS NULL)
+                  OR (source = 'TWO_GIS' AND external_id IS NOT NULL)
+                  OR (source = 'KUDAGO' AND external_id IS NOT NULL AND source_page_url IS NOT NULL)
+              );

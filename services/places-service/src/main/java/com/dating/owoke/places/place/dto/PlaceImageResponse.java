@@ -8,5 +8,8 @@ public record PlaceImageResponse(
         boolean cover,
         String thumbnailUrl,
         String cardUrl,
-        String detailUrl) {
+        String detailUrl,
+        String source,
+        String sourceName,
+        String sourceLink) {
 }

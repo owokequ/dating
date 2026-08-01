@@ -24,6 +24,9 @@ import com.dating.owoke.places.place.mapper.PlaceMapper;
 import com.dating.owoke.places.place.service.PlaceService;
 import com.dating.owoke.places.sync.dto.SyncResponse;
 import com.dating.owoke.places.sync.service.TwoGisSyncService;
+import com.dating.owoke.places.sync.service.KudaGoSyncService;
+import com.dating.owoke.places.media.service.PlaceMediaQueryService;
+import com.dating.owoke.places.media.service.PlaceMediaView;
 
 import jakarta.validation.Valid;
 
@@ -33,12 +36,21 @@ public class AdminPlaceController {
 
     private final PlaceService placeService;
     private final PlaceMapper mapper;
-    private final TwoGisSyncService syncService;
+    private final TwoGisSyncService twoGisSyncService;
+    private final KudaGoSyncService kudaGoSyncService;
+    private final PlaceMediaQueryService mediaQueryService;
 
-    public AdminPlaceController(PlaceService placeService, PlaceMapper mapper, TwoGisSyncService syncService) {
+    public AdminPlaceController(
+            PlaceService placeService,
+            PlaceMapper mapper,
+            TwoGisSyncService twoGisSyncService,
+            KudaGoSyncService kudaGoSyncService,
+            PlaceMediaQueryService mediaQueryService) {
         this.placeService = placeService;
         this.mapper = mapper;
-        this.syncService = syncService;
+        this.twoGisSyncService = twoGisSyncService;
+        this.kudaGoSyncService = kudaGoSyncService;
+        this.mediaQueryService = mediaQueryService;
     }
 
     @GetMapping
@@ -47,8 +59,12 @@ public class AdminPlaceController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Page<Place> result = placeService.listAdmin(status, page, size);
+        var media = mediaQueryService.findByPlaceIds(result.getContent().stream().map(Place::getId).toList());
         return new PlacePageResponse(
-                result.getContent().stream().map(mapper::toResponse).toList(),
+                result.getContent().stream()
+                        .map(place -> mapper.toResponse(
+                                place, media.getOrDefault(place.getId(), PlaceMediaView.empty())))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements(),
@@ -63,11 +79,19 @@ public class AdminPlaceController {
 
     @PutMapping("/{placeId}")
     public PlaceResponse update(@PathVariable UUID placeId, @Valid @RequestBody UpdatePlaceRequest request) {
-        return mapper.toResponse(placeService.update(placeId, request));
+        Place place = placeService.update(placeId, request);
+        PlaceMediaView media = mediaQueryService.findByPlaceIds(java.util.List.of(placeId))
+                .getOrDefault(placeId, PlaceMediaView.empty());
+        return mapper.toResponse(place, media);
     }
 
-    @PostMapping("/sync")
-    public SyncResponse synchronize() {
-        return syncService.synchronize();
+    @PostMapping("/sync/2gis")
+    public SyncResponse synchronizeTwoGis() {
+        return twoGisSyncService.synchronize();
+    }
+
+    @PostMapping("/sync/kudago")
+    public SyncResponse synchronizeKudaGo() {
+        return kudaGoSyncService.synchronize();
     }
 }

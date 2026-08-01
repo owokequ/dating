@@ -31,11 +31,16 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import com.dating.owoke.places.place.service.ExternalPlaceData;
 import com.dating.owoke.places.place.service.PlaceService;
 import com.dating.owoke.places.place.service.UpsertResult;
+import com.dating.owoke.places.place.domain.PlaceSource;
+import com.dating.owoke.places.place.service.ExternalPlaceImageData;
+import com.dating.owoke.places.media.service.PlaceMediaProjectionService;
+import com.dating.owoke.places.media.messaging.event.MediaCollectionChangedV2;
 
 import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(properties = {
         "owoke.outbox.enabled=false",
+        "owoke.messaging.consumers-enabled=false",
         "owoke.two-gis.enabled=false"
 })
 @AutoConfigureMockMvc
@@ -59,16 +64,19 @@ class PlaceCatalogIntegrationTest {
     private final ObjectMapper objectMapper;
     private final PlaceService placeService;
     private final JdbcTemplate jdbcTemplate;
+    private final PlaceMediaProjectionService mediaProjectionService;
 
     @Autowired
     PlaceCatalogIntegrationTest(
             MockMvc mockMvc,
             ObjectMapper objectMapper,
             PlaceService placeService,
+            PlaceMediaProjectionService mediaProjectionService,
             DataSource dataSource) {
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
         this.placeService = placeService;
+        this.mediaProjectionService = mediaProjectionService;
         this.jdbcTemplate = new JdbcTemplate(dataSource);
     }
 
@@ -131,12 +139,20 @@ class PlaceCatalogIntegrationTest {
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM outbox_events", Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM places", String.class)).isEqualTo("DRAFT");
         assertThat(jdbcTemplate.queryForObject("SELECT event_type FROM outbox_events", String.class))
-                .isEqualTo("PlaceDraftedV1");
+                .isEqualTo("PlaceDraftedV2");
 
         mockMvc.perform(get("/api/v1/places"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
         mockMvc.perform(get("/api/v1/admin/places")
+                        .with(jwt().jwt(token -> token.subject(UUID.randomUUID().toString())
+                                .claim("roles", List.of("USER")))))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/admin/places/sync/kudago")
+                        .with(jwt().jwt(token -> token.subject(UUID.randomUUID().toString())
+                                .claim("roles", List.of("USER")))))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/admin/places/sync/2gis")
                         .with(jwt().jwt(token -> token.subject(UUID.randomUUID().toString())
                                 .claim("roles", List.of("USER")))))
                 .andExpect(status().isForbidden());
@@ -194,6 +210,101 @@ class PlaceCatalogIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void kudaGoDraftRequiresCoverAndPreservesAdminOwnedFieldsOnRefresh() throws Exception {
+        ExternalPlaceData initial = new ExternalPlaceData(
+                PlaceSource.KUDAGO,
+                "101",
+                "KudaGo place",
+                "Provider description",
+                "ENTERTAINMENT",
+                "Kazan, Kremlevskaya, 1",
+                55.796,
+                49.106,
+                "https://kudago.com/kzn/place/kudago-place/",
+                List.of(new ExternalPlaceImageData(
+                        "provider-image-1",
+                        "https://kudago.com/media/images/place.jpg",
+                        "KudaGo",
+                        "https://kudago.com/kzn/place/kudago-place/")));
+        assertThat(placeService.upsertExternal(initial)).isEqualTo(UpsertResult.CREATED);
+        UUID placeId = jdbcTemplate.queryForObject("SELECT id FROM places", UUID.class);
+
+        mockMvc.perform(put("/api/v1/admin/places/{id}", placeId)
+                        .with(adminJwt())
+                        .contentType("application/json")
+                        .content(updatePlaceJson(
+                                "KudaGo place", "Kazan, Kremlevskaya, 1", "ACTIVE", "Own description", 3,
+                                "ENTERTAINMENT")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(
+                        "External place requires a cover image before publication"));
+
+        UUID mediaId = UUID.randomUUID();
+        mediaProjectionService.replace(
+                placeId, mediaId, List.of(mediaId), 1, java.time.Instant.now());
+        mediaProjectionService.replaceV2(
+                placeId,
+                mediaId,
+                List.of(new MediaCollectionChangedV2.Item(
+                        mediaId,
+                        0,
+                        "REMOTE_URL",
+                        "provider-image-1",
+                        "https://kudago.com/media/images/place.jpg",
+                        "https://kudago.com/media/images/place.jpg",
+                        "https://kudago.com/media/images/place.jpg",
+                        "KudaGo",
+                        initial.sourcePageUrl())),
+                1,
+                java.time.Instant.now());
+        mockMvc.perform(put("/api/v1/admin/places/{id}", placeId)
+                        .with(adminJwt())
+                        .contentType("application/json")
+                        .content(updatePlaceJson(
+                                "KudaGo place", "Kazan, Kremlevskaya, 1", "ACTIVE", "Own description", 3,
+                                "ENTERTAINMENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source").value("KUDAGO"))
+                .andExpect(jsonPath("$.description").value("Own description"))
+                .andExpect(jsonPath("$.providerDescription").value("Provider description"))
+                .andExpect(jsonPath("$.descriptionOverridden").value(true))
+                .andExpect(jsonPath("$.sourcePageUrl").value(initial.sourcePageUrl()))
+                .andExpect(jsonPath("$.coverMediaId").value(mediaId.toString()))
+                .andExpect(jsonPath("$.images[0].source").value("REMOTE_URL"))
+                .andExpect(jsonPath("$.images[0].sourceName").value("KudaGo"));
+
+        ExternalPlaceData refreshed = new ExternalPlaceData(
+                PlaceSource.KUDAGO,
+                "101",
+                "Updated KudaGo place",
+                "Updated provider description",
+                "ENTERTAINMENT",
+                "Kazan, Kremlevskaya, 2",
+                55.8,
+                49.2,
+                "https://kudago.com/kzn/place/kudago-place/",
+                initial.images());
+        assertThat(placeService.upsertExternal(refreshed)).isEqualTo(UpsertResult.UPDATED);
+        assertThat(placeService.upsertExternal(refreshed)).isEqualTo(UpsertResult.UNCHANGED);
+
+        mockMvc.perform(get("/api/v1/admin/places")
+                        .with(adminJwt())
+                        .param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].name").value("Updated KudaGo place"))
+                .andExpect(jsonPath("$.items[0].description").value("Own description"))
+                .andExpect(jsonPath("$.items[0].providerDescription").value("Updated provider description"));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM outbox_events", Integer.class)).isEqualTo(3);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT payload ->> 'eventVersion' FROM outbox_events ORDER BY occurred_at LIMIT 1", String.class))
+                .isEqualTo("2");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT payload -> 'payload' -> 'images' -> 0 ->> 'providerAssetKey' "
+                        + "FROM outbox_events WHERE event_type = 'PlacePublishedV2'",
+                String.class)).isEqualTo("provider-image-1");
+    }
+
     private org.springframework.test.web.servlet.request.RequestPostProcessor adminJwt() {
         return jwt().jwt(token -> token
                 .subject(UUID.randomUUID().toString())
@@ -225,17 +336,27 @@ class PlaceCatalogIntegrationTest {
             String status,
             String description,
             Integer priceLevel) {
+        return updatePlaceJson(name, address, status, description, priceLevel, "CAFE");
+    }
+
+    private String updatePlaceJson(
+            String name,
+            String address,
+            String status,
+            String description,
+            Integer priceLevel,
+            String category) {
         return """
                 {
                   "name": "%s",
                   "description": "%s",
-                  "category": "CAFE",
+                  "category": "%s",
                   "address": "%s",
                   "latitude": 55.796,
                   "longitude": 49.106,
                   "priceLevel": %d,
                   "status": "%s"
                 }
-                """.formatted(name, description, address, priceLevel, status);
+                """.formatted(name, description, category, address, priceLevel, status);
     }
 }

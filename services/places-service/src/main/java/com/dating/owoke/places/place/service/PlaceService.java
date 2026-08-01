@@ -18,7 +18,9 @@ import com.dating.owoke.places.place.dto.UpdatePlaceRequest;
 import com.dating.owoke.places.place.exception.DuplicatePlaceException;
 import com.dating.owoke.places.place.exception.PlaceNotFoundException;
 import com.dating.owoke.places.place.repository.PlaceRepository;
-import com.dating.owoke.places.shared.messaging.event.PlaceChangedV1;
+import com.dating.owoke.places.media.service.PlaceMediaQueryService;
+import com.dating.owoke.places.shared.messaging.event.ExternalImageV2;
+import com.dating.owoke.places.shared.messaging.event.PlaceChangedV2;
 import com.dating.owoke.places.shared.messaging.service.OutboxService;
 
 @Service
@@ -28,11 +30,17 @@ public class PlaceService {
 
     private final PlaceRepository repository;
     private final OutboxService outboxService;
+    private final PlaceMediaQueryService mediaQueryService;
     private final Clock clock;
 
-    public PlaceService(PlaceRepository repository, OutboxService outboxService, Clock clock) {
+    public PlaceService(
+            PlaceRepository repository,
+            OutboxService outboxService,
+            PlaceMediaQueryService mediaQueryService,
+            Clock clock) {
         this.repository = repository;
         this.outboxService = outboxService;
+        this.mediaQueryService = mediaQueryService;
         this.clock = clock;
     }
 
@@ -98,6 +106,12 @@ public class PlaceService {
     public Place update(UUID placeId, UpdatePlaceRequest request) {
         Place place = required(placeId);
         PlaceStatus previousStatus = place.getStatus();
+        if (place.getSource().isExternal()
+                && previousStatus != PlaceStatus.ACTIVE
+                && request.status() == PlaceStatus.ACTIVE
+                && !mediaQueryService.hasCover(placeId)) {
+            throw new IllegalArgumentException("External place requires a cover image before publication");
+        }
         boolean identityChanged = !Place.normalize(place.getName()).equals(Place.normalize(request.name()))
                 || !Place.normalize(place.getAddress()).equals(Place.normalize(request.address()));
         if (identityChanged) {
@@ -125,8 +139,11 @@ public class PlaceService {
     }
 
     @Transactional
-    public UpsertResult upsertTwoGis(ExternalPlaceData data) {
-        Place existing = repository.findBySourceAndExternalId(PlaceSource.TWO_GIS, data.externalId()).orElse(null);
+    public UpsertResult upsertExternal(ExternalPlaceData data) {
+        if (!data.source().isExternal()) {
+            throw new IllegalArgumentException("External upsert requires an external source");
+        }
+        Place existing = repository.findBySourceAndExternalId(data.source(), data.externalId()).orElse(null);
         if (existing == null) {
             boolean duplicate = repository.findFirstByNormalizedNameAndNormalizedAddress(
                             Place.normalize(data.name()), Place.normalize(data.address()))
@@ -134,31 +151,46 @@ public class PlaceService {
             if (duplicate) {
                 return UpsertResult.DUPLICATE;
             }
-            Place place = repository.save(Place.twoGis(
+            Place place = repository.save(Place.external(
+                    data.source(),
                     data.externalId(),
                     data.name(),
+                    data.providerDescription(),
                     data.category(),
                     data.address(),
                     data.latitude(),
                     data.longitude(),
+                    data.sourcePageUrl(),
+                    data.imagesFingerprint(),
                     clock.instant()));
-            publish("PlaceDraftedV1", place);
+            publish("PlaceDraftedV2", place, externalImages(data));
             return UpsertResult.CREATED;
         }
 
         PlaceStatus previousStatus = existing.getStatus();
         boolean changed = existing.refreshExternal(
                 data.name(),
+                data.providerDescription(),
                 data.category(),
                 data.address(),
                 data.latitude(),
                 data.longitude(),
+                data.sourcePageUrl(),
+                data.imagesFingerprint(),
                 clock.instant());
         if (!changed) {
             return UpsertResult.UNCHANGED;
         }
-        publishIfRequired(eventType(previousStatus, existing.getStatus()), existing);
-        return UpsertResult.UPDATED;
+        publishIfRequired(eventType(previousStatus, existing.getStatus()), existing, externalImages(data));
+        return changed ? UpsertResult.UPDATED : UpsertResult.UNCHANGED;
+    }
+
+    @Transactional
+    public UpsertResult upsertTwoGis(ExternalPlaceData data) {
+        if (data.source() != PlaceSource.TWO_GIS) {
+            throw new IllegalArgumentException("2GIS upsert requires TWO_GIS source");
+        }
+        return upsertExternal(data);
     }
 
     private void rejectNormalizedDuplicate(String name, String address) {
@@ -173,11 +205,16 @@ public class PlaceService {
     }
 
     private void publish(String eventType, Place place) {
+        publish(eventType, place, mediaQueryService.findExternalImages(place.getId()));
+    }
+
+    private void publish(String eventType, Place place, java.util.List<ExternalImageV2> images) {
         outboxService.enqueue(
                 PLACES_EVENTS_TOPIC,
                 place.getId(),
                 eventType,
-                new PlaceChangedV1(
+                2,
+                new PlaceChangedV2(
                         place.getId(),
                         place.getCityCode(),
                         place.getName(),
@@ -186,7 +223,11 @@ public class PlaceService {
                         place.getLatitude(),
                         place.getLongitude(),
                         place.getPriceLevel(),
-                        place.getStatus().name()));
+                        place.getStatus().name(),
+                        place.getSource().name(),
+                        place.getExternalId(),
+                        place.getSourcePageUrl(),
+                        images));
     }
 
     private void publishIfRequired(String eventType, Place place) {
@@ -195,19 +236,33 @@ public class PlaceService {
         }
     }
 
+    private void publishIfRequired(String eventType, Place place, java.util.List<ExternalImageV2> images) {
+        if (eventType != null) {
+            publish(eventType, place, images);
+        }
+    }
+
     private String eventType(PlaceStatus previous, PlaceStatus current) {
         if (current == PlaceStatus.DRAFT) {
-            return "PlaceDraftedV1";
+            return "PlaceDraftedV2";
         }
         if (previous != PlaceStatus.ACTIVE && current == PlaceStatus.ACTIVE) {
-            return "PlacePublishedV1";
+            return "PlacePublishedV2";
         }
         if (previous != PlaceStatus.ARCHIVED && current == PlaceStatus.ARCHIVED) {
-            return "PlaceArchivedV1";
+            return "PlaceArchivedV2";
         }
         if (current == PlaceStatus.ARCHIVED) {
             return null;
         }
-        return "PlaceUpdatedV1";
+        return "PlaceUpdatedV2";
+    }
+
+    private java.util.List<ExternalImageV2> externalImages(ExternalPlaceData data) {
+        return data.images().stream()
+                .limit(5)
+                .map(image -> new ExternalImageV2(
+                        image.providerAssetKey(), image.remoteUrl(), image.sourceName(), image.sourceLink()))
+                .toList();
     }
 }

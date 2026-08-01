@@ -32,8 +32,11 @@ public class Place {
     @Column(name = "normalized_name", nullable = false, length = 200)
     private String normalizedName;
 
-    @Column(length = 2000)
-    private String description;
+    @Column(name = "provider_description", length = 2000)
+    private String providerDescription;
+
+    @Column(name = "description_override", length = 2000)
+    private String descriptionOverride;
 
     @Column(nullable = false, length = 64)
     private String category;
@@ -60,6 +63,12 @@ public class Place {
     @Column(name = "external_id", updatable = false, length = 128)
     private String externalId;
 
+    @Column(name = "source_page_url", length = 1000)
+    private String sourcePageUrl;
+
+    @Column(name = "provider_media_fingerprint", length = 64)
+    private String providerMediaFingerprint;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private PlaceStatus status;
@@ -81,19 +90,27 @@ public class Place {
             PlaceSource source,
             String externalId,
             String name,
-            String description,
+            String providerDescription,
+            String descriptionOverride,
             String category,
             String address,
             double latitude,
             double longitude,
             Integer priceLevel,
+            String sourcePageUrl,
+            String providerMediaFingerprint,
             PlaceStatus status,
             Instant now) {
         this.id = UUID.randomUUID();
         this.cityCode = CITY_CODE;
         this.source = Objects.requireNonNull(source, "source must not be null");
         this.externalId = normalizeExternalId(source, externalId);
-        applyDetails(name, description, category, address, latitude, longitude, priceLevel);
+        this.providerDescription = optionalText(providerDescription, 2000);
+        this.descriptionOverride = optionalText(descriptionOverride, 2000);
+        this.sourcePageUrl = normalizeSourcePageUrl(source, sourcePageUrl);
+        this.providerMediaFingerprint = providerMediaFingerprint;
+        applyProviderDetails(name, category, address, latitude, longitude);
+        applyAdminDetails(priceLevel);
         this.status = Objects.requireNonNull(status, "status must not be null");
         this.createdAt = Objects.requireNonNull(now, "now must not be null");
         this.updatedAt = now;
@@ -109,20 +126,29 @@ public class Place {
             Integer priceLevel,
             Instant now) {
         return new Place(
-                PlaceSource.MANUAL, null, name, description, category, address, latitude, longitude, priceLevel,
+                PlaceSource.MANUAL, null, name, null, description, category, address, latitude, longitude, priceLevel,
+                null, null,
                 PlaceStatus.ACTIVE, now);
     }
 
-    public static Place twoGis(
+    public static Place external(
+            PlaceSource source,
             String externalId,
             String name,
+            String providerDescription,
             String category,
             String address,
             double latitude,
             double longitude,
+            String sourcePageUrl,
+            String providerMediaFingerprint,
             Instant now) {
+        if (!source.isExternal()) {
+            throw new IllegalArgumentException("External place must have an external source");
+        }
         return new Place(
-                PlaceSource.TWO_GIS, externalId, name, null, category, address, latitude, longitude, null,
+                source, externalId, name, providerDescription, null, category, address, latitude, longitude, null,
+                sourcePageUrl, providerMediaFingerprint,
                 PlaceStatus.DRAFT, now);
     }
 
@@ -137,11 +163,18 @@ public class Place {
             PlaceStatus status,
             Instant now) {
         String oldFingerprint = fingerprint();
-        if (source == PlaceSource.TWO_GIS) {
+        if (source.isExternal()) {
             rejectExternalFieldChanges(name, category, address, latitude, longitude);
-            applyDetails(this.name, description, this.category, this.address, this.latitude, this.longitude, priceLevel);
+            String requestedDescription = optionalText(description, 2000);
+            this.descriptionOverride = descriptionOverride == null
+                    && Objects.equals(requestedDescription, providerDescription)
+                    ? null
+                    : requestedDescription;
+            applyAdminDetails(priceLevel);
         } else {
-            applyDetails(name, description, category, address, latitude, longitude, priceLevel);
+            this.descriptionOverride = optionalText(description, 2000);
+            applyProviderDetails(name, category, address, latitude, longitude);
+            applyAdminDetails(priceLevel);
         }
         this.status = Objects.requireNonNull(status, "status must not be null");
         boolean changed = !oldFingerprint.equals(fingerprint());
@@ -153,16 +186,22 @@ public class Place {
 
     public boolean refreshExternal(
             String name,
+            String providerDescription,
             String category,
             String address,
             double latitude,
             double longitude,
+            String sourcePageUrl,
+            String providerMediaFingerprint,
             Instant now) {
-        if (source != PlaceSource.TWO_GIS) {
-            throw new IllegalStateException("Only a 2GIS place can be refreshed from the provider");
+        if (!source.isExternal()) {
+            throw new IllegalStateException("Only an external place can be refreshed from the provider");
         }
         String oldFingerprint = fingerprint();
-        applyDetails(name, description, category, address, latitude, longitude, priceLevel);
+        this.providerDescription = optionalText(providerDescription, 2000);
+        this.sourcePageUrl = normalizeSourcePageUrl(source, sourcePageUrl);
+        this.providerMediaFingerprint = providerMediaFingerprint;
+        applyProviderDetails(name, category, address, latitude, longitude);
         boolean changed = !oldFingerprint.equals(fingerprint());
         if (changed) {
             updatedAt = Objects.requireNonNull(now, "now must not be null");
@@ -183,7 +222,19 @@ public class Place {
     }
 
     public String getDescription() {
-        return description;
+        return descriptionOverride != null ? descriptionOverride : providerDescription;
+    }
+
+    public String getProviderDescription() {
+        return providerDescription;
+    }
+
+    public String getDescriptionOverride() {
+        return descriptionOverride;
+    }
+
+    public boolean isDescriptionOverridden() {
+        return descriptionOverride != null;
     }
 
     public String getCategory() {
@@ -214,6 +265,10 @@ public class Place {
         return externalId;
     }
 
+    public String getSourcePageUrl() {
+        return sourcePageUrl;
+    }
+
     public PlaceStatus getStatus() {
         return status;
     }
@@ -240,40 +295,43 @@ public class Place {
                 .toLowerCase(Locale.ROOT);
     }
 
-    private void applyDetails(
+    private void applyProviderDetails(
             String name,
-            String description,
             String category,
             String address,
             double latitude,
-            double longitude,
-            Integer priceLevel) {
+            double longitude) {
         this.name = requireText(name, "name", 200);
         this.normalizedName = normalize(this.name);
-        this.description = optionalText(description, 2000);
         this.category = requireText(category, "category", 64).toUpperCase(Locale.ROOT);
         this.address = requireText(address, "address", 500);
         this.normalizedAddress = normalize(this.address);
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
             throw new IllegalArgumentException("Coordinates are outside valid range");
         }
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
+
+    private void applyAdminDetails(Integer priceLevel) {
         if (priceLevel != null && (priceLevel < 1 || priceLevel > 4)) {
             throw new IllegalArgumentException("priceLevel must be between 1 and 4");
         }
-        this.latitude = latitude;
-        this.longitude = longitude;
         this.priceLevel = priceLevel;
     }
 
     private String fingerprint() {
         return String.join("|",
                 name,
-                Objects.toString(description, ""),
+                Objects.toString(providerDescription, ""),
+                Objects.toString(descriptionOverride, ""),
                 category,
                 address,
                 Double.toString(latitude),
                 Double.toString(longitude),
                 Objects.toString(priceLevel, ""),
+                Objects.toString(sourcePageUrl, ""),
+                Objects.toString(providerMediaFingerprint, ""),
                 status == null ? "" : status.name());
     }
 
@@ -290,7 +348,7 @@ public class Place {
                 || Double.compare(latitude, this.latitude) != 0
                 || Double.compare(longitude, this.longitude) != 0;
         if (changed) {
-            throw new IllegalArgumentException("2GIS-owned name, category, address and coordinates cannot be edited");
+            throw new IllegalArgumentException("Provider-owned name, category, address and coordinates cannot be edited");
         }
     }
 
@@ -302,6 +360,17 @@ public class Place {
             return null;
         }
         return requireText(externalId, "externalId", 128);
+    }
+
+    private static String normalizeSourcePageUrl(PlaceSource source, String sourcePageUrl) {
+        String normalized = optionalText(sourcePageUrl, 1000);
+        if (source == PlaceSource.KUDAGO && normalized == null) {
+            throw new IllegalArgumentException("KudaGo place must have sourcePageUrl");
+        }
+        if (normalized != null && !normalized.startsWith("https://")) {
+            throw new IllegalArgumentException("sourcePageUrl must use HTTPS");
+        }
+        return normalized;
     }
 
     private static String requireText(String value, String name, int maxLength) {

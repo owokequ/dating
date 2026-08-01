@@ -56,6 +56,13 @@ owoke:
         category: RESTAURANT
       - query: "\u0440\u0430\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f"
         category: ENTERTAINMENT
+  kudago:
+    enabled: ${KUDAGO_PLACES_ENABLED:true}
+    base-url: ${KUDAGO_BASE_URL:https://kudago.com}
+    location: kzn
+    page-size: ${KUDAGO_PLACES_PAGE_SIZE:100}
+    food-limit: ${KUDAGO_PLACES_FOOD_LIMIT:10}
+    leisure-limit: ${KUDAGO_PLACES_LEISURE_LIMIT:20}
 
 management:
   endpoints:

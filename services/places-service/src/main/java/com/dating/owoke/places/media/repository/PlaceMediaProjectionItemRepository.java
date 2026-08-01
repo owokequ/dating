@@ -13,4 +13,6 @@ public interface PlaceMediaProjectionItemRepository extends JpaRepository<PlaceM
     List<PlaceMediaProjectionItem> findByPlaceIdInOrderByPlaceIdAscPositionAsc(Collection<UUID> placeIds);
 
     void deleteByPlaceId(UUID placeId);
+
+    boolean existsByPlaceIdAndCoverTrue(UUID placeId);
 }

@@ -5,3 +5,7 @@ databaseChangeLog:
       file: db/changelog/changes/002-create-media-projection.yaml
   - include:
       file: db/changelog/changes/003-add-place-draft-status.yaml
+  - include:
+      file: db/changelog/changes/004-add-external-provider-fields.yaml
+  - include:
+      file: db/changelog/changes/005-expand-media-projection.yaml

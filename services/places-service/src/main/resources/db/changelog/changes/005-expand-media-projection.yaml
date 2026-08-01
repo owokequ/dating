@@ -1,0 +1,29 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-expand-media-projection
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE place_media_projection_items
+                  ADD COLUMN source VARCHAR(16) NOT NULL DEFAULT 'UPLOAD',
+                  ADD COLUMN provider_asset_key VARCHAR(256),
+                  ADD COLUMN thumbnail_url VARCHAR(2000),
+                  ADD COLUMN card_url VARCHAR(2000),
+                  ADD COLUMN detail_url VARCHAR(2000),
+                  ADD COLUMN source_name VARCHAR(200),
+                  ADD COLUMN source_link VARCHAR(1000);
+
+              UPDATE place_media_projection_items
+              SET thumbnail_url = '/api/v1/media/assets/' || media_id || '/content?variant=THUMBNAIL',
+                  card_url = '/api/v1/media/assets/' || media_id || '/content?variant=CARD',
+                  detail_url = '/api/v1/media/assets/' || media_id || '/content?variant=DETAIL';
+
+              ALTER TABLE place_media_projection_items
+                  ALTER COLUMN thumbnail_url SET NOT NULL,
+                  ALTER COLUMN card_url SET NOT NULL,
+                  ALTER COLUMN detail_url SET NOT NULL;
+
+              ALTER TABLE place_media_projection_items
+                  ADD CONSTRAINT ck_place_media_projection_source
+                  CHECK (source IN ('UPLOAD', 'REMOTE_URL'));

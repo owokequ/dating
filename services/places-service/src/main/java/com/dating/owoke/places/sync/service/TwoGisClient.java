@@ -79,12 +79,8 @@ public class TwoGisClient {
                 || !point.path("lat").isNumber() || !point.path("lon").isNumber()) {
             return null;
         }
-        return new ExternalPlaceData(
-                externalId,
-                name,
-                category,
-                address,
-                point.path("lat").asDouble(),
-                point.path("lon").asDouble());
+        return ExternalPlaceData.twoGis(
+                externalId, name, category, address,
+                point.path("lat").asDouble(), point.path("lon").asDouble());
     }
 }

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/places-events-v2.schema.json",
+  "title": "Places events V2 payloads",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "placeId", "cityCode", "name", "address", "category", "latitude", "longitude",
+    "status", "source", "images"
+  ],
+  "properties": {
+    "placeId": {"type": "string", "format": "uuid"},
+    "cityCode": {"const": "KZN"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 200},
+    "address": {"type": "string", "minLength": 1, "maxLength": 500},
+    "category": {"type": "string", "minLength": 1, "maxLength": 100},
+    "latitude": {"type": "number", "minimum": -90, "maximum": 90},
+    "longitude": {"type": "number", "minimum": -180, "maximum": 180},
+    "priceLevel": {"type": ["integer", "null"], "minimum": 1, "maximum": 4},
+    "status": {"enum": ["DRAFT", "ACTIVE", "ARCHIVED"]},
+    "source": {"enum": ["MANUAL", "TWO_GIS", "KUDAGO"]},
+    "externalId": {"type": ["string", "null"], "maxLength": 128},
+    "sourcePageUrl": {"type": ["string", "null"], "format": "uri", "maxLength": 1000},
+    "images": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/externalImage"}
+    }
+  },
+  "$defs": {
+    "externalImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["providerAssetKey", "remoteUrl", "sourceName", "sourceLink"],
+      "properties": {
+        "providerAssetKey": {"type": "string", "minLength": 1, "maxLength": 256},
+        "remoteUrl": {"type": "string", "format": "uri", "pattern": "^https://"},
+        "sourceName": {"const": "KudaGo"},
+        "sourceLink": {"type": "string", "format": "uri", "pattern": "^https://"}
+      }
+    }
+  }
+}

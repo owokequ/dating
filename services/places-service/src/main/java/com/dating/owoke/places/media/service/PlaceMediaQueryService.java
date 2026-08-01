@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dating.owoke.places.media.domain.PlaceMediaProjectionItem;
 import com.dating.owoke.places.media.repository.PlaceMediaProjectionItemRepository;
 import com.dating.owoke.places.place.dto.PlaceImageResponse;
+import com.dating.owoke.places.shared.messaging.event.ExternalImageV2;
 
 @Service
 public class PlaceMediaQueryService {
@@ -41,15 +42,31 @@ public class PlaceMediaQueryService {
         UUID cover = items.stream().filter(PlaceMediaProjectionItem::isCover)
                 .map(PlaceMediaProjectionItem::getMediaId).findFirst().orElse(null);
         List<PlaceImageResponse> images = items.stream().map(item -> {
-            String base = "/api/v1/media/assets/" + item.getMediaId() + "/content?variant=";
             return new PlaceImageResponse(
                     item.getMediaId(),
                     item.getPosition(),
                     item.isCover(),
-                    base + "THUMBNAIL",
-                    base + "CARD",
-                    base + "DETAIL");
+                    item.getThumbnailUrl(),
+                    item.getCardUrl(),
+                    item.getDetailUrl(),
+                    item.getSource(),
+                    item.getSourceName(),
+                    item.getSourceLink());
         }).toList();
         return new PlaceMediaView(cover, images);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasCover(UUID placeId) {
+        return repository.existsByPlaceIdAndCoverTrue(placeId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExternalImageV2> findExternalImages(UUID placeId) {
+        return repository.findByPlaceIdInOrderByPlaceIdAscPositionAsc(List.of(placeId)).stream()
+                .filter(item -> "REMOTE_URL".equals(item.getSource()))
+                .map(item -> new ExternalImageV2(
+                        item.getProviderAssetKey(), item.getDetailUrl(), item.getSourceName(), item.getSourceLink()))
+                .toList();
     }
 }
