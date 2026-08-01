@@ -17,9 +17,11 @@ import com.dating.owoke.notification.shared.messaging.domain.EventEnvelope;
 import com.dating.owoke.notification.shared.messaging.domain.InboxEvent;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalCreatedV1;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalCreatedV2;
+import com.dating.owoke.notification.shared.messaging.event.DateProposalCreatedV3;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalDecisionResultV1;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalStatusChangedV1;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalStatusChangedV2;
+import com.dating.owoke.notification.shared.messaging.event.DateProposalStatusChangedV3;
 import com.dating.owoke.notification.shared.messaging.event.EmailNotificationRequestedV1;
 import com.dating.owoke.notification.shared.messaging.event.UserProfileUpdatedV1;
 import com.dating.owoke.notification.shared.messaging.event.UserRegisteredV1;
@@ -74,12 +76,13 @@ public class IncomingEventProcessor {
     @Transactional
     public void process(String topic, String message) {
         EventEnvelope envelope = deserialize(message, EventEnvelope.class);
-        boolean versionTwoType = switch (envelope.eventType()) {
+        int expectedVersion = switch (envelope.eventType()) {
+            case "DateProposalCreatedV3", "DateProposalAcceptedV3",
+                    "DateProposalDeclinedV3", "DateProposalCancelledV3" -> 3;
             case "DateProposalCreatedV2", "DateProposalAcceptedV2",
-                    "DateProposalDeclinedV2", "DateProposalCancelledV2" -> true;
-            default -> false;
+                    "DateProposalDeclinedV2", "DateProposalCancelledV2" -> 2;
+            default -> 1;
         };
-        int expectedVersion = versionTwoType ? 2 : 1;
         if (envelope.eventVersion() != expectedVersion) {
             throw new IllegalArgumentException("Unsupported event version: " + envelope.eventVersion());
         }
@@ -103,10 +106,14 @@ public class IncomingEventProcessor {
                     envelope, DateProposalCreatedV1.class));
             case "DateProposalCreatedV2" -> proposalCreated(envelope, payload(
                     envelope, DateProposalCreatedV2.class));
+            case "DateProposalCreatedV3" -> proposalCreated(envelope, payload(
+                    envelope, DateProposalCreatedV3.class));
             case "DateProposalAcceptedV1", "DateProposalDeclinedV1", "DateProposalCancelledV1" ->
                     proposalStatusChanged(envelope, payload(envelope, DateProposalStatusChangedV1.class));
             case "DateProposalAcceptedV2", "DateProposalDeclinedV2", "DateProposalCancelledV2" ->
                     proposalStatusChanged(envelope, payload(envelope, DateProposalStatusChangedV2.class));
+            case "DateProposalAcceptedV3", "DateProposalDeclinedV3", "DateProposalCancelledV3" ->
+                    proposalStatusChanged(envelope, payload(envelope, DateProposalStatusChangedV3.class));
             case "DateProposalDecisionResultV1" -> proposalDecisionResult(
                     envelope, payload(envelope, DateProposalDecisionResultV1.class));
             case "CoupleActivatedV1", "CoupleClosedV1" -> {
@@ -178,6 +185,16 @@ public class IncomingEventProcessor {
                 dateUrl(event.proposalId()), event.proposalId(), event.coupleId(), event.placeCoverMediaId());
     }
 
+    private void proposalCreated(EventEnvelope envelope, DateProposalCreatedV3 event) {
+        notificationService.create(
+                envelope.eventId(), event.responderId(), "DATE_PROPOSAL_CREATED",
+                "Новое предложение свидания 💌",
+                proposalBody(event.scheduledAt(), event.placeName(), event.placeAddress(),
+                        event.description(), event.selectionType(), event.eventTitle(),
+                        event.eventPrice(), event.eventSourceUrl()),
+                dateUrl(event.proposalId()), event.proposalId(), event.coupleId(), event.coverMediaId());
+    }
+
     private void proposalStatusChanged(EventEnvelope envelope, DateProposalStatusChangedV1 event) {
         UUID recipient;
         String title;
@@ -242,6 +259,38 @@ public class IncomingEventProcessor {
         }
     }
 
+    private void proposalStatusChanged(EventEnvelope envelope, DateProposalStatusChangedV3 event) {
+        UUID recipient;
+        String title;
+        switch (event.status()) {
+            case "ACCEPTED" -> {
+                recipient = event.proposerId();
+                title = "Свидание подтверждено 💞";
+            }
+            case "DECLINED" -> {
+                recipient = event.proposerId();
+                title = "Предложение отклонено";
+            }
+            case "CANCELLED" -> {
+                recipient = event.changedBy().equals(event.proposerId())
+                        ? event.responderId() : event.proposerId();
+                title = "Свидание отменено";
+            }
+            default -> throw new IllegalArgumentException("Unsupported proposal status: " + event.status());
+        }
+        notificationService.create(
+                envelope.eventId(), recipient, "DATE_PROPOSAL_" + event.status(), title,
+                proposalBody(event.scheduledAt(), event.placeName(), event.placeAddress(),
+                        event.description(), event.selectionType(), event.eventTitle(),
+                        event.eventPrice(), event.eventSourceUrl()),
+                dateUrl(event.proposalId()), event.proposalId(), event.coupleId(), event.coverMediaId());
+        if ("ACCEPTED".equals(event.status())) {
+            reminderService.schedule(envelope, event);
+        } else if ("CANCELLED".equals(event.status())) {
+            reminderService.cancel(event.proposalId());
+        }
+    }
+
     private void proposalDecisionResult(EventEnvelope envelope, DateProposalDecisionResultV1 event) {
         String title;
         String body;
@@ -277,6 +326,33 @@ public class IncomingEventProcessor {
     private String proposalBody(java.time.Instant scheduledAt, String place, String address, String description) {
         String body = DATE_FORMAT.format(scheduledAt.atZone(MOSCOW)) + " — " + place + ", " + address;
         return description == null || description.isBlank() ? body : body + "\n" + description;
+    }
+
+    private String proposalBody(
+            java.time.Instant scheduledAt,
+            String place,
+            String address,
+            String description,
+            String selectionType,
+            String eventTitle,
+            String eventPrice,
+            String eventSourceUrl) {
+        if (!"EVENT".equals(selectionType)) {
+            return proposalBody(scheduledAt, place, address, description);
+        }
+        StringBuilder body = new StringBuilder(DATE_FORMAT.format(scheduledAt.atZone(MOSCOW)))
+                .append(" — ").append(eventTitle)
+                .append("\n📍 ").append(place).append(", ").append(address);
+        if (eventPrice != null && !eventPrice.isBlank()) {
+            body.append("\n💳 ").append(eventPrice);
+        }
+        if (description != null && !description.isBlank()) {
+            body.append("\n💭 ").append(description);
+        }
+        if (eventSourceUrl != null && !eventSourceUrl.isBlank()) {
+            body.append("\nИсточник: KudaGo — ").append(eventSourceUrl);
+        }
+        return body.toString();
     }
 
     private String dateUrl(UUID proposalId) {

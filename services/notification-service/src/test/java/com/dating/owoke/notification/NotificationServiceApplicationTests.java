@@ -131,6 +131,41 @@ class NotificationServiceApplicationTests {
     }
 
     @Test
+    void eventDateV3CreatesAttributedNotificationWithCover() {
+        UUID proposerId = UUID.randomUUID();
+        UUID responderId = UUID.randomUUID();
+        UUID mediaId = UUID.randomUUID();
+        UUID proposalId = UUID.randomUUID();
+        processUserRegistered(responderId, "Bob", "bob@example.com");
+        Map<String, Object> payload = Map.ofEntries(
+                Map.entry("proposalId", proposalId),
+                Map.entry("coupleId", UUID.randomUUID()),
+                Map.entry("proposerId", proposerId),
+                Map.entry("responderId", responderId),
+                Map.entry("scheduledAt", Instant.now().plusSeconds(172800)),
+                Map.entry("timezone", "Europe/Moscow"),
+                Map.entry("selectionType", "EVENT"),
+                Map.entry("placeName", "Театр Камала"),
+                Map.entry("placeAddress", "Казань"),
+                Map.entry("coverMediaId", mediaId),
+                Map.entry("eventId", UUID.randomUUID()),
+                Map.entry("eventOccurrenceId", UUID.randomUUID()),
+                Map.entry("eventTitle", "Романтический спектакль"),
+                Map.entry("eventSourceUrl", "https://kudago.com/kzn/event/test/"),
+                Map.entry("eventPrice", "от 1000 ₽"),
+                Map.entry("description", "Пойдём вместе"));
+
+        eventProcessor.process("dating.events.v1", envelope(
+                UUID.randomUUID(), "DateProposalCreatedV3", 3, proposalId, payload));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT media_id FROM notifications", UUID.class))
+                .isEqualTo(mediaId);
+        assertThat(jdbcTemplate.queryForObject("SELECT body FROM notifications", String.class))
+                .contains("Романтический спектакль", "от 1000 ₽", "Источник: KudaGo",
+                        "https://kudago.com/kzn/event/test/");
+    }
+
+    @Test
     void acceptedDateSchedulesFutureRemindersAndCancellationStopsThem() {
         UUID proposerId = UUID.randomUUID();
         UUID responderId = UUID.randomUUID();

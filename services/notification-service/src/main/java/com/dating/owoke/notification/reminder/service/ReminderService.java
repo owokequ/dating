@@ -19,6 +19,7 @@ import com.dating.owoke.notification.shared.configuration.NotificationProperties
 import com.dating.owoke.notification.shared.messaging.domain.EventEnvelope;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalStatusChangedV1;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalStatusChangedV2;
+import com.dating.owoke.notification.shared.messaging.event.DateProposalStatusChangedV3;
 
 @Service
 public class ReminderService {
@@ -50,6 +51,14 @@ public class ReminderService {
     public void schedule(EventEnvelope envelope, DateProposalStatusChangedV2 event) {
         schedule(envelope, event.proposalId(), event.proposerId(), event.responderId(),
                 event.scheduledAt(), event.placeName(), event.placeAddress(), event.placeCoverMediaId());
+    }
+
+    public void schedule(EventEnvelope envelope, DateProposalStatusChangedV3 event) {
+        String subject = "EVENT".equals(event.selectionType()) && event.eventTitle() != null
+                ? event.eventTitle()
+                : event.placeName();
+        schedule(envelope, event.proposalId(), event.proposerId(), event.responderId(),
+                event.scheduledAt(), subject, event.placeAddress(), event.coverMediaId());
     }
 
     private void schedule(
