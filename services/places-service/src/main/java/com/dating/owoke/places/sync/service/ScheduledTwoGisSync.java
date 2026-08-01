@@ -5,7 +5,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(prefix = "owoke.two-gis", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(
+        prefix = "owoke.two-gis",
+        name = {"enabled", "schedule-enabled"},
+        havingValue = "true")
 public class ScheduledTwoGisSync {
 
     private final TwoGisSyncService syncService;

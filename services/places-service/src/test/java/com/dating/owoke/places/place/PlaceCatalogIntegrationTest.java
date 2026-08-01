@@ -129,6 +129,69 @@ class PlaceCatalogIntegrationTest {
         assertThat(placeService.upsertTwoGis(data)).isEqualTo(UpsertResult.UNCHANGED);
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM places", Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM outbox_events", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM places", String.class)).isEqualTo("DRAFT");
+        assertThat(jdbcTemplate.queryForObject("SELECT event_type FROM outbox_events", String.class))
+                .isEqualTo("PlaceDraftedV1");
+
+        mockMvc.perform(get("/api/v1/places"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mockMvc.perform(get("/api/v1/admin/places")
+                        .with(jwt().jwt(token -> token.subject(UUID.randomUUID().toString())
+                                .claim("roles", List.of("USER")))))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/admin/places")
+                        .with(adminJwt())
+                        .param("status", "DRAFT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.items[0].status").value("DRAFT"));
+    }
+
+    @Test
+    void twoGisRefreshPreservesAdminFieldsAndNeverReactivatesArchivedPlace() throws Exception {
+        ExternalPlaceData initial = new ExternalPlaceData(
+                "2gis-2", "Old name", "CAFE", "Old address", 55.796, 49.106);
+        assertThat(placeService.upsertTwoGis(initial)).isEqualTo(UpsertResult.CREATED);
+        UUID placeId = jdbcTemplate.queryForObject("SELECT id FROM places", UUID.class);
+
+        mockMvc.perform(put("/api/v1/admin/places/{id}", placeId)
+                        .with(adminJwt())
+                        .contentType("application/json")
+                        .content(updatePlaceJson(
+                                "Old name", "Old address", "ARCHIVED", "Own description", 3)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Own description"))
+                .andExpect(jsonPath("$.priceLevel").value(3));
+
+        ExternalPlaceData refreshed = new ExternalPlaceData(
+                "2gis-2", "Provider name", "RESTAURANT", "Provider address", 55.8, 49.2);
+        assertThat(placeService.upsertTwoGis(refreshed)).isEqualTo(UpsertResult.UPDATED);
+
+        mockMvc.perform(get("/api/v1/admin/places")
+                        .with(adminJwt())
+                        .param("status", "ARCHIVED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].name").value("Provider name"))
+                .andExpect(jsonPath("$.items[0].category").value("RESTAURANT"))
+                .andExpect(jsonPath("$.items[0].description").value("Own description"))
+                .andExpect(jsonPath("$.items[0].priceLevel").value(3))
+                .andExpect(jsonPath("$.items[0].status").value("ARCHIVED"));
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM outbox_events", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void adminCannotChangeProviderOwnedFields() throws Exception {
+        placeService.upsertTwoGis(new ExternalPlaceData(
+                "2gis-3", "Provider name", "CAFE", "Provider address", 55.796, 49.106));
+        UUID placeId = jdbcTemplate.queryForObject("SELECT id FROM places", UUID.class);
+
+        mockMvc.perform(put("/api/v1/admin/places/{id}", placeId)
+                        .with(adminJwt())
+                        .contentType("application/json")
+                        .content(updatePlaceJson(
+                                "Changed by admin", "Provider address", "DRAFT", "Description", 2)))
+                .andExpect(status().isBadRequest());
     }
 
     private org.springframework.test.web.servlet.request.RequestPostProcessor adminJwt() {
@@ -153,17 +216,26 @@ class PlaceCatalogIntegrationTest {
     }
 
     private String updatePlaceJson(String name, String address, String status) {
+        return updatePlaceJson(name, address, status, "A cozy place", 2);
+    }
+
+    private String updatePlaceJson(
+            String name,
+            String address,
+            String status,
+            String description,
+            Integer priceLevel) {
         return """
                 {
                   "name": "%s",
-                  "description": "A cozy place",
+                  "description": "%s",
                   "category": "CAFE",
                   "address": "%s",
                   "latitude": 55.796,
                   "longitude": 49.106,
-                  "priceLevel": 2,
+                  "priceLevel": %d,
                   "status": "%s"
                 }
-                """.formatted(name, address, status);
+                """.formatted(name, description, address, priceLevel, status);
     }
 }

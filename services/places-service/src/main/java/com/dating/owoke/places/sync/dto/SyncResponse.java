@@ -1,4 +1,12 @@
 package com.dating.owoke.places.sync.dto;
 
-public record SyncResponse(int received, int created, int updated, int unchanged, int duplicates) {
+import java.util.List;
+
+public record SyncResponse(
+        int received,
+        int created,
+        int updated,
+        int unchanged,
+        int duplicates,
+        List<SyncFailure> failures) {
 }

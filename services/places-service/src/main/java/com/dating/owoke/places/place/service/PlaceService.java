@@ -57,6 +57,19 @@ public class PlaceService {
     }
 
     @Transactional(readOnly = true)
+    public Page<Place> listAdmin(PlaceStatus status, int page, int size) {
+        Specification<Place> specification = (root, criteria, builder) ->
+                builder.equal(root.get("cityCode"), Place.CITY_CODE);
+        if (status != null) {
+            specification = specification.and((root, criteria, builder) -> builder.equal(root.get("status"), status));
+        }
+        return repository.findAll(
+                specification,
+                PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)),
+                        Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.asc("name"))));
+    }
+
+    @Transactional(readOnly = true)
     public Place getActive(UUID placeId) {
         Place place = required(placeId);
         if (place.getStatus() != PlaceStatus.ACTIVE) {
@@ -106,7 +119,7 @@ public class PlaceService {
                 request.status(),
                 clock.instant());
         if (changed) {
-            publish(eventType(previousStatus, place.getStatus()), place);
+            publishIfRequired(eventType(previousStatus, place.getStatus()), place);
         }
         return place;
     }
@@ -129,25 +142,22 @@ public class PlaceService {
                     data.latitude(),
                     data.longitude(),
                     clock.instant()));
-            publish("PlacePublishedV1", place);
+            publish("PlaceDraftedV1", place);
             return UpsertResult.CREATED;
         }
 
         PlaceStatus previousStatus = existing.getStatus();
-        boolean changed = existing.update(
+        boolean changed = existing.refreshExternal(
                 data.name(),
-                existing.getDescription(),
                 data.category(),
                 data.address(),
                 data.latitude(),
                 data.longitude(),
-                existing.getPriceLevel(),
-                PlaceStatus.ACTIVE,
                 clock.instant());
         if (!changed) {
             return UpsertResult.UNCHANGED;
         }
-        publish(eventType(previousStatus, existing.getStatus()), existing);
+        publishIfRequired(eventType(previousStatus, existing.getStatus()), existing);
         return UpsertResult.UPDATED;
     }
 
@@ -179,12 +189,24 @@ public class PlaceService {
                         place.getStatus().name()));
     }
 
+    private void publishIfRequired(String eventType, Place place) {
+        if (eventType != null) {
+            publish(eventType, place);
+        }
+    }
+
     private String eventType(PlaceStatus previous, PlaceStatus current) {
+        if (current == PlaceStatus.DRAFT) {
+            return "PlaceDraftedV1";
+        }
+        if (previous != PlaceStatus.ACTIVE && current == PlaceStatus.ACTIVE) {
+            return "PlacePublishedV1";
+        }
         if (previous != PlaceStatus.ARCHIVED && current == PlaceStatus.ARCHIVED) {
             return "PlaceArchivedV1";
         }
-        if (previous == PlaceStatus.ARCHIVED && current == PlaceStatus.ACTIVE) {
-            return "PlacePublishedV1";
+        if (current == PlaceStatus.ARCHIVED) {
+            return null;
         }
         return "PlaceUpdatedV1";
     }

@@ -41,16 +41,21 @@ owoke:
     jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8081/.well-known/jwks.json}
   two-gis:
     enabled: ${TWO_GIS_ENABLED:false}
+    schedule-enabled: ${TWO_GIS_SCHEDULE_ENABLED:false}
     api-key: ${TWO_GIS_API_KEY:}
     base-url: https://catalog.api.2gis.com
-    location: 49.1064,55.7963
+    point: 49.1064,55.7963
     radius-meters: 40000
-    page-size: 50
+    page-size: ${TWO_GIS_PAGE_SIZE:10}
+    max-pages: ${TWO_GIS_MAX_PAGES:1}
     requests-per-second: 2
     queries:
-      - "\u043a\u0430\u0444\u0435"
-      - "\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d"
-      - "\u0440\u0430\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f"
+      - query: "\u043a\u0430\u0444\u0435"
+        category: CAFE
+      - query: "\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d\u044b"
+        category: RESTAURANT
+      - query: "\u0440\u0430\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u0438\u044f"
+        category: ENTERTAINMENT
 
 management:
   endpoints:

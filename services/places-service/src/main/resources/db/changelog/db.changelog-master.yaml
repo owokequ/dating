@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/changes/001-create-places-schema.yaml
   - include:
       file: db/changelog/changes/002-create-media-projection.yaml
+  - include:
+      file: db/changelog/changes/003-add-place-draft-status.yaml

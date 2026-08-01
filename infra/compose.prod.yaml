@@ -176,7 +176,10 @@ services:
       OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
       IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
       TWO_GIS_ENABLED: ${TWO_GIS_ENABLED:-false}
+      TWO_GIS_SCHEDULE_ENABLED: ${TWO_GIS_SCHEDULE_ENABLED:-false}
       TWO_GIS_API_KEY: ${TWO_GIS_API_KEY:-}
+      TWO_GIS_PAGE_SIZE: ${TWO_GIS_PAGE_SIZE:-10}
+      TWO_GIS_MAX_PAGES: ${TWO_GIS_MAX_PAGES:-1}
     depends_on:
       places-postgres: { condition: service_healthy }
       redis: { condition: service_healthy }

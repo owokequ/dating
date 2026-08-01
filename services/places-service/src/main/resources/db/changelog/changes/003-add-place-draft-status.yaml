@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-add-place-draft-status
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE places DROP CONSTRAINT ck_place_status;
+              ALTER TABLE places ADD CONSTRAINT ck_place_status
+                  CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'));

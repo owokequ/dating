@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.dating.owoke.places.place.exception.DuplicatePlaceException;
 import com.dating.owoke.places.place.exception.PlaceNotFoundException;
 import com.dating.owoke.places.sync.exception.SyncUnavailableException;
+import com.dating.owoke.places.sync.exception.SyncAlreadyRunningException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -19,9 +20,14 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, "Resource not found", exception.getMessage());
     }
 
-    @ExceptionHandler({DuplicatePlaceException.class, SyncUnavailableException.class})
+    @ExceptionHandler({DuplicatePlaceException.class, SyncAlreadyRunningException.class})
     ProblemDetail conflict(RuntimeException exception) {
         return problem(HttpStatus.CONFLICT, "Operation cannot be completed", exception.getMessage());
+    }
+
+    @ExceptionHandler(SyncUnavailableException.class)
+    ProblemDetail serviceUnavailable(SyncUnavailableException exception) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "External synchronization unavailable", exception.getMessage());
     }
 
     @ExceptionHandler({IllegalArgumentException.class, MethodArgumentNotValidException.class})

@@ -87,13 +87,14 @@ public class Place {
             double latitude,
             double longitude,
             Integer priceLevel,
+            PlaceStatus status,
             Instant now) {
         this.id = UUID.randomUUID();
         this.cityCode = CITY_CODE;
         this.source = Objects.requireNonNull(source, "source must not be null");
         this.externalId = normalizeExternalId(source, externalId);
         applyDetails(name, description, category, address, latitude, longitude, priceLevel);
-        this.status = PlaceStatus.ACTIVE;
+        this.status = Objects.requireNonNull(status, "status must not be null");
         this.createdAt = Objects.requireNonNull(now, "now must not be null");
         this.updatedAt = now;
     }
@@ -108,7 +109,8 @@ public class Place {
             Integer priceLevel,
             Instant now) {
         return new Place(
-                PlaceSource.MANUAL, null, name, description, category, address, latitude, longitude, priceLevel, now);
+                PlaceSource.MANUAL, null, name, description, category, address, latitude, longitude, priceLevel,
+                PlaceStatus.ACTIVE, now);
     }
 
     public static Place twoGis(
@@ -120,7 +122,8 @@ public class Place {
             double longitude,
             Instant now) {
         return new Place(
-                PlaceSource.TWO_GIS, externalId, name, null, category, address, latitude, longitude, null, now);
+                PlaceSource.TWO_GIS, externalId, name, null, category, address, latitude, longitude, null,
+                PlaceStatus.DRAFT, now);
     }
 
     public boolean update(
@@ -134,11 +137,35 @@ public class Place {
             PlaceStatus status,
             Instant now) {
         String oldFingerprint = fingerprint();
-        applyDetails(name, description, category, address, latitude, longitude, priceLevel);
+        if (source == PlaceSource.TWO_GIS) {
+            rejectExternalFieldChanges(name, category, address, latitude, longitude);
+            applyDetails(this.name, description, this.category, this.address, this.latitude, this.longitude, priceLevel);
+        } else {
+            applyDetails(name, description, category, address, latitude, longitude, priceLevel);
+        }
         this.status = Objects.requireNonNull(status, "status must not be null");
         boolean changed = !oldFingerprint.equals(fingerprint());
         if (changed) {
             this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+        }
+        return changed;
+    }
+
+    public boolean refreshExternal(
+            String name,
+            String category,
+            String address,
+            double latitude,
+            double longitude,
+            Instant now) {
+        if (source != PlaceSource.TWO_GIS) {
+            throw new IllegalStateException("Only a 2GIS place can be refreshed from the provider");
+        }
+        String oldFingerprint = fingerprint();
+        applyDetails(name, description, category, address, latitude, longitude, priceLevel);
+        boolean changed = !oldFingerprint.equals(fingerprint());
+        if (changed) {
+            updatedAt = Objects.requireNonNull(now, "now must not be null");
         }
         return changed;
     }
@@ -248,6 +275,23 @@ public class Place {
                 Double.toString(longitude),
                 Objects.toString(priceLevel, ""),
                 status == null ? "" : status.name());
+    }
+
+    private void rejectExternalFieldChanges(
+            String name,
+            String category,
+            String address,
+            double latitude,
+            double longitude) {
+        boolean changed = !Objects.equals(normalize(name), normalize(this.name))
+                || !Objects.equals(normalize(address), normalize(this.address))
+                || category == null
+                || !category.trim().toUpperCase(Locale.ROOT).equals(this.category)
+                || Double.compare(latitude, this.latitude) != 0
+                || Double.compare(longitude, this.longitude) != 0;
+        if (changed) {
+            throw new IllegalArgumentException("2GIS-owned name, category, address and coordinates cannot be edited");
+        }
     }
 
     private static String normalizeExternalId(PlaceSource source, String externalId) {

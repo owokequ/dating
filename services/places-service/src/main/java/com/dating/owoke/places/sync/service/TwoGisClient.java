@@ -2,7 +2,6 @@ package com.dating.owoke.places.sync.service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -11,6 +10,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 import com.dating.owoke.places.place.service.ExternalPlaceData;
 import com.dating.owoke.places.sync.configuration.TwoGisProperties;
+import com.dating.owoke.places.sync.configuration.TwoGisQuery;
 import com.dating.owoke.places.sync.exception.SyncUnavailableException;
 
 import tools.jackson.databind.JsonNode;
@@ -31,7 +31,7 @@ public class TwoGisClient {
         this.rateLimiter = rateLimiter;
     }
 
-    public List<ExternalPlaceData> search(String query) {
+    public List<ExternalPlaceData> search(TwoGisQuery query, int page) {
         if (!properties.isConfigured()) {
             throw new SyncUnavailableException("2GIS synchronization is not configured");
         }
@@ -41,12 +41,13 @@ public class TwoGisClient {
             response = restClient.get()
                     .uri(uri -> uri.path("/3.0/items")
                             .queryParam("key", properties.apiKey())
-                            .queryParam("q", query)
-                            .queryParam("location", properties.location())
+                            .queryParam("q", query.query())
+                            .queryParam("point", properties.point())
                             .queryParam("radius", properties.radiusMeters())
                             .queryParam("type", "branch")
                             .queryParam("page_size", properties.pageSize())
-                            .queryParam("fields", "items.point,items.rubrics")
+                            .queryParam("page", page)
+                            .queryParam("fields", "items.point")
                             .build())
                     .retrieve()
                     .requiredBody(JsonNode.class);
@@ -61,7 +62,7 @@ public class TwoGisClient {
 
         List<ExternalPlaceData> places = new ArrayList<>();
         for (JsonNode item : response.path("result").path("items")) {
-            ExternalPlaceData place = map(item, query);
+            ExternalPlaceData place = map(item, query.category());
             if (place != null) {
                 places.add(place);
             }
@@ -69,7 +70,7 @@ public class TwoGisClient {
         return places;
     }
 
-    private ExternalPlaceData map(JsonNode item, String fallbackCategory) {
+    private ExternalPlaceData map(JsonNode item, String category) {
         String externalId = item.path("id").asString();
         String name = item.path("name").asString();
         String address = item.path("address_name").asString();
@@ -78,14 +79,10 @@ public class TwoGisClient {
                 || !point.path("lat").isNumber() || !point.path("lon").isNumber()) {
             return null;
         }
-        JsonNode rubrics = item.path("rubrics");
-        String category = rubrics.isArray() && !rubrics.isEmpty()
-                ? rubrics.get(0).path("name").asString()
-                : fallbackCategory;
         return new ExternalPlaceData(
                 externalId,
                 name,
-                category.toUpperCase(Locale.ROOT),
+                category,
                 address,
                 point.path("lat").asDouble(),
                 point.path("lon").asDouble());
