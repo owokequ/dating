@@ -20,6 +20,7 @@ import org.springframework.web.client.RestClient;
 
 import com.dating.owoke.notification.telegram.configuration.TelegramBotProperties;
 import com.dating.owoke.notification.telegram.dto.TelegramInlineButton;
+import tools.jackson.databind.json.JsonMapper;
 
 class TelegramBotClientTest {
 
@@ -32,7 +33,8 @@ class TelegramBotClientTest {
         server = MockRestServiceServer.bindTo(builder).build();
         client = new TelegramBotClient(
                 builder,
-                new TelegramBotProperties(true, "polling", "test-token", ""));
+                new TelegramBotProperties(true, "polling", "test-token", ""),
+                JsonMapper.builder().build());
     }
 
     @Test
@@ -47,6 +49,47 @@ class TelegramBotClientTest {
                 .andRespond(withSuccess("{\"ok\":true,\"result\":{\"message_id\":42}}", MediaType.APPLICATION_JSON));
 
         assertThat(client.send(123L, "Test message", "http://localhost:5173/dates/1")).isEqualTo("42");
+        server.verify();
+    }
+
+    @Test
+    void photoCardUsesMultipartHtmlCaptionAndReturnsReusableFileId() {
+        server.expect(requestTo("https://api.telegram.org/bottest-token/sendPhoto"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(request -> {
+                    String contentType = request.getHeaders().getContentType().toString();
+                    String body = ((MockClientHttpRequest) request).getBodyAsString();
+                    assertThat(contentType).startsWith("multipart/form-data")
+                            .as("RestClient must generate a multipart boundary");
+                    assertThat(body).contains("name=\"caption\"", "<b>Date</b>", "name=\"photo\"");
+                })
+                .andRespond(withSuccess("""
+                        {"ok":true,"result":{"message_id":42,"photo":[
+                          {"file_id":"small","file_unique_id":"u1"},
+                          {"file_id":"largest","file_unique_id":"u2"}
+                        ]}}
+                        """, MediaType.APPLICATION_JSON));
+
+        TelegramPhotoResult result = client.sendPhoto(
+                123L, "<b>Date</b>", "https://owoke.app/dates/1", List.of(),
+                TelegramPhoto.upload(new byte[] {1, 2, 3}, "image/jpeg", "date.jpg"));
+
+        assertThat(result).isEqualTo(new TelegramPhotoResult("42", "largest", "u2"));
+        server.verify();
+    }
+
+    @Test
+    void decisionResultEditsOriginalPhotoCaptionAndRemovesDecisionButtons() {
+        server.expect(requestTo("https://api.telegram.org/bottest-token/editMessageCaption"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(request -> {
+                    String body = ((MockClientHttpRequest) request).getBodyAsString();
+                    assertThat(body).contains("\"chat_id\":123", "\"message_id\":42", "Открыть Owoke")
+                            .doesNotContain("callback_data");
+                })
+                .andRespond(withSuccess("{\"ok\":true,\"result\":{\"message_id\":42}}", MediaType.APPLICATION_JSON));
+
+        client.editPhotoCaption(123L, 42L, "<b>Accepted</b>", "https://owoke.app/dates/1");
         server.verify();
     }
 

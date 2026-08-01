@@ -80,7 +80,8 @@ public class DeliveryService {
                 notification.getActionUrl(),
                 notification.getType(),
                 notification.getReferenceId(),
-                notification.getContextId());
+                notification.getContextId(),
+                notification.getMediaId());
     }
 
     private void createEmailFallback(java.util.UUID notificationId) {

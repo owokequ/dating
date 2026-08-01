@@ -18,6 +18,7 @@ import com.dating.owoke.notification.reminder.repository.ScheduledNotificationRe
 import com.dating.owoke.notification.shared.configuration.NotificationProperties;
 import com.dating.owoke.notification.shared.messaging.domain.EventEnvelope;
 import com.dating.owoke.notification.shared.messaging.event.DateProposalStatusChangedV1;
+import com.dating.owoke.notification.shared.messaging.event.DateProposalStatusChangedV2;
 
 @Service
 public class ReminderService {
@@ -42,20 +43,38 @@ public class ReminderService {
     }
 
     public void schedule(EventEnvelope envelope, DateProposalStatusChangedV1 event) {
-        for (UUID userId : new UUID[] {event.proposerId(), event.responderId()}) {
+        schedule(envelope, event.proposalId(), event.proposerId(), event.responderId(),
+                event.scheduledAt(), event.placeName(), event.placeAddress(), null);
+    }
+
+    public void schedule(EventEnvelope envelope, DateProposalStatusChangedV2 event) {
+        schedule(envelope, event.proposalId(), event.proposerId(), event.responderId(),
+                event.scheduledAt(), event.placeName(), event.placeAddress(), event.placeCoverMediaId());
+    }
+
+    private void schedule(
+            EventEnvelope envelope,
+            UUID proposalId,
+            UUID proposerId,
+            UUID responderId,
+            java.time.Instant scheduledAt,
+            String placeName,
+            String placeAddress,
+            UUID mediaId) {
+        for (UUID userId : new UUID[] {proposerId, responderId}) {
             for (ReminderType type : ReminderType.values()) {
-                java.time.Instant scheduledFor = event.scheduledAt().minus(type.beforeDate());
+                java.time.Instant scheduledFor = scheduledAt.minus(type.beforeDate());
                 if (scheduledFor.isAfter(clock.instant())) {
                     repository.save(new ScheduledNotification(
                             envelope.eventId(),
-                            event.proposalId(),
+                            proposalId,
                             userId,
                             type,
                             scheduledFor,
                             new ReminderPayload(
-                                    DATE_FORMAT.format(event.scheduledAt()) + " — " + event.placeName()
-                                            + ", " + event.placeAddress(),
-                                    properties.webAppUrl() + "/dates/" + event.proposalId()),
+                                    DATE_FORMAT.format(scheduledAt) + " — " + placeName + ", " + placeAddress,
+                                    properties.webAppUrl() + "/dates/" + proposalId,
+                                    mediaId),
                             clock.instant()));
                 }
             }
@@ -77,7 +96,10 @@ public class ReminderService {
                     "DATE_REMINDER_" + reminder.getReminderType().name(),
                     "Скоро свидание",
                     payload.body(),
-                    payload.actionUrl());
+                    payload.actionUrl(),
+                    null,
+                    null,
+                    payload.mediaId());
             reminder.markCreated(clock.instant());
         }
     }

@@ -14,5 +14,6 @@ public record DeliveryTask(
         String actionUrl,
         String notificationType,
         UUID referenceId,
-        UUID contextId) {
+        UUID contextId,
+        UUID mediaId) {
 }

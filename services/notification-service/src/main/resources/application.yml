@@ -50,6 +50,7 @@ owoke:
   notification:
     web-app-url: ${WEB_APP_URL:http://localhost:5173}
     from-email: ${NOTIFICATION_FROM_EMAIL:noreply@owoke.local}
+    media-service-url: ${MEDIA_SERVICE_URL:http://localhost:8085}
     delivery-fixed-delay: ${NOTIFICATION_DELIVERY_FIXED_DELAY:1000}
   telegram:
     enabled: ${TELEGRAM_BOT_ENABLED:false}

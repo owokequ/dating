@@ -40,6 +40,9 @@ public class Notification {
     @Column(name = "context_id", updatable = false)
     private UUID contextId;
 
+    @Column(name = "media_id", updatable = false)
+    private UUID mediaId;
+
     @Column(name = "read_at")
     private Instant readAt;
 
@@ -82,6 +85,20 @@ public class Notification {
             UUID referenceId,
             UUID contextId,
             Instant now) {
+        this(sourceEventId, userId, type, title, body, actionUrl, referenceId, contextId, null, now);
+    }
+
+    public Notification(
+            UUID sourceEventId,
+            UUID userId,
+            String type,
+            String title,
+            String body,
+            String actionUrl,
+            UUID referenceId,
+            UUID contextId,
+            UUID mediaId,
+            Instant now) {
         this.id = UUID.randomUUID();
         this.sourceEventId = Objects.requireNonNull(sourceEventId, "sourceEventId must not be null");
         this.userId = Objects.requireNonNull(userId, "userId must not be null");
@@ -91,6 +108,7 @@ public class Notification {
         this.actionUrl = actionUrl;
         this.referenceId = referenceId;
         this.contextId = contextId;
+        this.mediaId = mediaId;
         this.createdAt = Objects.requireNonNull(now, "now must not be null");
     }
 
@@ -130,6 +148,10 @@ public class Notification {
 
     public UUID getContextId() {
         return contextId;
+    }
+
+    public UUID getMediaId() {
+        return mediaId;
     }
 
     public Instant getReadAt() {

@@ -1,0 +1,49 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-add-telegram-media
+      author: codex
+      changes:
+        - addColumn:
+            tableName: notifications
+            columns:
+              - column: { name: media_id, type: uuid }
+        - createTable:
+            tableName: telegram_media_cache
+            columns:
+              - column: { name: id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: media_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: content_hash, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: bot_id, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: file_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: file_unique_id, type: varchar(255) }
+              - column: { name: created_at, type: timestamp with time zone, constraints: { nullable: false } }
+        - addUniqueConstraint:
+            tableName: telegram_media_cache
+            columnNames: media_id,content_hash,bot_id
+            constraintName: uq_telegram_media_cache_asset_bot
+        - createTable:
+            tableName: telegram_decision_requests
+            columns:
+              - column: { name: request_id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: telegram_update_id, type: bigint, constraints: { nullable: false } }
+              - column: { name: proposal_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: actor_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: chat_id, type: bigint, constraints: { nullable: false } }
+              - column: { name: message_id, type: bigint, constraints: { nullable: false } }
+              - column: { name: action_url, type: varchar(1000) }
+              - column: { name: status, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: result_caption, type: varchar(1024) }
+              - column: { name: attempts, type: integer, defaultValueNumeric: 0, constraints: { nullable: false } }
+              - column: { name: next_attempt_at, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: completed_at, type: timestamp with time zone }
+        - addUniqueConstraint:
+            tableName: telegram_decision_requests
+            columnNames: telegram_update_id
+            constraintName: uq_telegram_decision_request_update
+        - createIndex:
+            tableName: telegram_decision_requests
+            indexName: idx_telegram_decision_requests_pending
+            columns:
+              - column: { name: status }
+              - column: { name: next_attempt_at }

@@ -10,6 +10,9 @@ import com.dating.owoke.notification.email.service.EmailClient;
 import com.dating.owoke.notification.telegram.dto.TelegramInlineButton;
 import com.dating.owoke.notification.telegram.domain.DateProposalCallback;
 import com.dating.owoke.notification.telegram.service.TelegramBotClient;
+import com.dating.owoke.notification.telegram.service.TelegramCardFormatter;
+import com.dating.owoke.notification.telegram.service.TelegramMediaService;
+import com.dating.owoke.notification.telegram.service.TelegramPhotoResult;
 
 @Component
 @ConditionalOnProperty(prefix = "owoke.delivery", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -17,14 +20,20 @@ public class DeliveryDispatcher {
 
     private final DeliveryService deliveryService;
     private final TelegramBotClient telegramClient;
+    private final TelegramMediaService telegramMediaService;
+    private final TelegramCardFormatter telegramCardFormatter;
     private final EmailClient emailClient;
 
     public DeliveryDispatcher(
             DeliveryService deliveryService,
             TelegramBotClient telegramClient,
+            TelegramMediaService telegramMediaService,
+            TelegramCardFormatter telegramCardFormatter,
             EmailClient emailClient) {
         this.deliveryService = deliveryService;
         this.telegramClient = telegramClient;
+        this.telegramMediaService = telegramMediaService;
+        this.telegramCardFormatter = telegramCardFormatter;
         this.emailClient = emailClient;
     }
 
@@ -38,11 +47,7 @@ public class DeliveryDispatcher {
     private void deliver(DeliveryTask task) {
         try {
             String providerMessageId = switch (task.channel()) {
-                case TELEGRAM -> telegramClient.send(
-                        required(task.telegramChatId(), "Telegram chat is not linked"),
-                        task.title() + "\n\n" + task.body(),
-                        task.actionUrl(),
-                        telegramButtons(task));
+                case TELEGRAM -> deliverTelegram(task);
                 case EMAIL -> emailClient.send(
                         required(task.email(), "Email is not available"),
                         task.title(),
@@ -53,6 +58,21 @@ public class DeliveryDispatcher {
         } catch (Exception exception) {
             deliveryService.markFailed(task, exception);
         }
+    }
+
+    private String deliverTelegram(DeliveryTask task) {
+        long chatId = required(task.telegramChatId(), "Telegram chat is not linked");
+        TelegramMediaService.PreparedTelegramPhoto prepared = task.mediaId() == null
+                ? telegramMediaService.preparePlaceholder()
+                : telegramMediaService.prepare(task.mediaId());
+        TelegramPhotoResult result = telegramClient.sendPhoto(
+                chatId,
+                telegramCardFormatter.format(task.title(), task.body()),
+                task.actionUrl(),
+                telegramButtons(task),
+                prepared.photo());
+        telegramMediaService.remember(prepared, result);
+        return result.messageId();
     }
 
     private static <T> T required(T value, String message) {

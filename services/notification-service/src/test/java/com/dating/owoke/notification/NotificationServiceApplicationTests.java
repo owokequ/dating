@@ -57,7 +57,8 @@ class NotificationServiceApplicationTests {
     @BeforeEach
     void cleanDatabase() {
         jdbcTemplate.execute("""
-                TRUNCATE TABLE telegram_updates, outbox_events, failed_messages, inbox_events,
+                TRUNCATE TABLE telegram_decision_requests, telegram_media_cache, telegram_updates,
+                    outbox_events, failed_messages, inbox_events,
                     delivery_attempts, scheduled_notifications, notifications,
                     notification_preferences, contact_projections CASCADE
                 """);
@@ -98,6 +99,35 @@ class NotificationServiceApplicationTests {
         assertThat(count("inbox_events")).isEqualTo(3);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT channel FROM delivery_attempts", String.class)).isEqualTo("EMAIL");
+    }
+
+    @Test
+    void dateV2CarriesCoverMediaIntoTelegramDelivery() {
+        UUID proposerId = UUID.randomUUID();
+        UUID responderId = UUID.randomUUID();
+        UUID mediaId = UUID.randomUUID();
+        processUserRegistered(responderId, "Bob", "bob@example.com");
+        UUID proposalId = UUID.randomUUID();
+        Map<String, Object> payload = Map.ofEntries(
+                Map.entry("proposalId", proposalId),
+                Map.entry("coupleId", UUID.randomUUID()),
+                Map.entry("proposerId", proposerId),
+                Map.entry("responderId", responderId),
+                Map.entry("scheduledAt", Instant.now().plusSeconds(172800)),
+                Map.entry("timezone", "Europe/Moscow"),
+                Map.entry("placeId", UUID.randomUUID()),
+                Map.entry("placeName", "Кафе"),
+                Map.entry("placeAddress", "Казань"),
+                Map.entry("placeCoverMediaId", mediaId),
+                Map.entry("description", "Вечернее свидание"));
+
+        eventProcessor.process("dating.events.v1", envelope(
+                UUID.randomUUID(), "DateProposalCreatedV2", 2, proposalId, payload));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT media_id FROM notifications", UUID.class))
+                .isEqualTo(mediaId);
+        assertThat(jdbcTemplate.queryForObject("SELECT type FROM notifications", String.class))
+                .isEqualTo("DATE_PROPOSAL_CREATED");
     }
 
     @Test
@@ -167,10 +197,10 @@ class NotificationServiceApplicationTests {
         UUID proposalId = UUID.randomUUID();
         UUID coupleId = UUID.randomUUID();
         botCommandService.handleDateProposalDecision(
-                777L, telegramUserId, telegramUserId,
+                777L, telegramUserId, telegramUserId, 42L,
                 new DateProposalCallback(proposalId, coupleId, "ACCEPT").encode());
         botCommandService.handleDateProposalDecision(
-                777L, telegramUserId, telegramUserId,
+                777L, telegramUserId, telegramUserId, 42L,
                 new DateProposalCallback(proposalId, coupleId, "ACCEPT").encode());
 
         assertThat(jdbcTemplate.queryForObject(
@@ -186,6 +216,33 @@ class NotificationServiceApplicationTests {
                 "SELECT event_key FROM outbox_events WHERE event_type = 'DateProposalDecisionRequestedV1'",
                 String.class)).isEqualTo(coupleId.toString());
         assertThat(count("telegram_updates")).isEqualTo(1);
+        assertThat(count("telegram_decision_requests")).isEqualTo(1);
+
+        UUID requestId;
+        try {
+            String commandEnvelope = jdbcTemplate.queryForObject(
+                    "SELECT payload FROM outbox_events WHERE event_type = 'DateProposalDecisionRequestedV1'",
+                    String.class);
+            requestId = UUID.fromString(objectMapper.readTree(commandEnvelope).path("eventId").asString());
+        } catch (JacksonException exception) {
+            throw new IllegalStateException(exception);
+        }
+        int deliveriesBeforeResult = count("delivery_attempts");
+        eventProcessor.process("dating.events.v1", envelope(
+                UUID.randomUUID(), "DateProposalDecisionResultV1", proposalId,
+                Map.of(
+                        "requestId", requestId,
+                        "proposalId", proposalId,
+                        "coupleId", coupleId,
+                        "actorId", userId,
+                        "decision", "ACCEPT",
+                        "successful", true,
+                        "errorCode", "")));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM telegram_decision_requests WHERE request_id = ?",
+                String.class, requestId)).isEqualTo("READY");
+        assertThat(count("delivery_attempts")).isEqualTo(deliveriesBeforeResult);
     }
 
     @Test
@@ -265,11 +322,15 @@ class NotificationServiceApplicationTests {
     }
 
     private String envelope(UUID eventId, String type, UUID aggregateId, Object payload) {
+        return envelope(eventId, type, 1, aggregateId, payload);
+    }
+
+    private String envelope(UUID eventId, String type, int version, UUID aggregateId, Object payload) {
         try {
             return objectMapper.writeValueAsString(Map.of(
                     "eventId", eventId,
                     "eventType", type,
-                    "eventVersion", 1,
+                    "eventVersion", version,
                     "aggregateId", aggregateId.toString(),
                     "occurredAt", Instant.now(),
                     "correlationId", UUID.randomUUID(),

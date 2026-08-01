@@ -44,13 +44,15 @@ public class TelegramUpdateService {
         long updateId = update.path("update_id").asLong();
         String callbackQueryId = callback.path("id").asString();
         long chatId = callback.path("message").path("chat").path("id").asLong();
+        long messageId = callback.path("message").path("message_id").asLong();
         long userId = callback.path("from").path("id").asLong();
         String callbackData = callback.path("data").asString();
-        if (updateId <= 0 || callbackQueryId.isBlank() || chatId == 0 || userId <= 0 || callbackData.isBlank()) {
+        if (updateId <= 0 || callbackQueryId.isBlank() || chatId == 0 || messageId <= 0
+                || userId <= 0 || callbackData.isBlank()) {
             throw new IllegalArgumentException("Invalid Telegram callback update");
         }
         BotReply reply = commandService.handleDateProposalDecision(
-                updateId, userId, chatId, callbackData);
+                updateId, userId, chatId, messageId, callbackData);
         botClient.answerCallbackQuery(callbackQueryId, reply.text());
     }
 

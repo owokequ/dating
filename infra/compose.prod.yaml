@@ -132,6 +132,7 @@ services:
       OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:?OWOKE_JWT_ISSUER is required}
       IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
       WEB_APP_URL: https://${OWOKE_DOMAIN:?OWOKE_DOMAIN is required}
+      MEDIA_SERVICE_URL: http://media-service:8085
       TELEGRAM_BOT_ENABLED: ${TELEGRAM_BOT_ENABLED:-true}
       TELEGRAM_BOT_MODE: webhook
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
@@ -147,6 +148,7 @@ services:
       redis: { condition: service_healthy }
       kafka: { condition: service_healthy }
       identity-service: { condition: service_healthy }
+      media-service: { condition: service_healthy }
     healthcheck: { test: ["CMD", "curl", "-fsS", "http://localhost:8083/actuator/health/readiness"], interval: 15s, timeout: 5s, retries: 10, start_period: 45s }
 
   places-service:

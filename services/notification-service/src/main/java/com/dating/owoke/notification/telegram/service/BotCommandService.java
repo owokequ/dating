@@ -10,6 +10,7 @@ import com.dating.owoke.notification.contact.repository.ContactProjectionReposit
 import com.dating.owoke.notification.preference.domain.NotificationPreference;
 import com.dating.owoke.notification.preference.repository.NotificationPreferenceRepository;
 import com.dating.owoke.notification.shared.messaging.service.OutboxService;
+import com.dating.owoke.notification.shared.configuration.NotificationProperties;
 import com.dating.owoke.notification.telegram.domain.TelegramUpdate;
 import com.dating.owoke.notification.telegram.domain.DateProposalCallback;
 import com.dating.owoke.notification.telegram.messaging.event.DateProposalDecisionRequestedV1;
@@ -25,6 +26,8 @@ public class BotCommandService {
     private final ContactProjectionRepository contactRepository;
     private final NotificationPreferenceRepository preferenceRepository;
     private final TelegramUpdateRepository updateRepository;
+    private final TelegramDecisionService decisionService;
+    private final NotificationProperties notificationProperties;
     private final Clock clock;
 
     public BotCommandService(
@@ -32,11 +35,15 @@ public class BotCommandService {
             ContactProjectionRepository contactRepository,
             NotificationPreferenceRepository preferenceRepository,
             TelegramUpdateRepository updateRepository,
+            TelegramDecisionService decisionService,
+            NotificationProperties notificationProperties,
             Clock clock) {
         this.outboxService = outboxService;
         this.contactRepository = contactRepository;
         this.preferenceRepository = preferenceRepository;
         this.updateRepository = updateRepository;
+        this.decisionService = decisionService;
+        this.notificationProperties = notificationProperties;
         this.clock = clock;
     }
 
@@ -79,6 +86,7 @@ public class BotCommandService {
             long updateId,
             long telegramUserId,
             long chatId,
+            long messageId,
             String callbackData) {
         TelegramUpdate processed = updateRepository.findById(updateId).orElse(null);
         if (processed != null) {
@@ -92,12 +100,15 @@ public class BotCommandService {
                 || contact.getTelegramChatId().longValue() != chatId) {
             reply = new BotReply(chatId, "Сначала привяжите этот Telegram-аккаунт к Owoke.");
         } else {
-            outboxService.enqueue(
+            java.util.UUID requestId = outboxService.enqueue(
                     DATING_COMMANDS_TOPIC,
                     decision.coupleId().toString(),
                     "DateProposalDecisionRequestedV1",
                     new DateProposalDecisionRequestedV1(
                             decision.proposalId(), decision.coupleId(), contact.getUserId(), decision.decision()));
+            decisionService.remember(
+                    requestId, updateId, decision.proposalId(), contact.getUserId(), chatId, messageId,
+                    notificationProperties.webAppUrl() + "/dates/" + decision.proposalId());
             String actionText = "ACCEPT".equals(decision.decision()) ? "принятие" : "отклонение";
             reply = new BotReply(chatId, "Запрос на " + actionText + " отправлен.");
         }
