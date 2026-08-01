@@ -1,11 +1,15 @@
 package com.dating.owoke.notification.telegram.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import tools.jackson.databind.JsonNode;
 
 @Service
 public class TelegramUpdateService {
+
+    private static final Logger log = LoggerFactory.getLogger(TelegramUpdateService.class);
 
     private final BotCommandService commandService;
     private final TelegramBotClient botClient;
@@ -53,7 +57,17 @@ public class TelegramUpdateService {
         }
         BotReply reply = commandService.handleDateProposalDecision(
                 updateId, userId, chatId, messageId, callbackData);
-        botClient.answerCallbackQuery(callbackQueryId, reply.text());
+        acknowledgeCallback(callbackQueryId, reply.text());
+    }
+
+    private void acknowledgeCallback(String callbackQueryId, String replyText) {
+        try {
+            botClient.answerCallbackQuery(callbackQueryId, replyText);
+        } catch (RuntimeException exception) {
+            // The decision command is already committed and idempotently recorded by updateId.
+            // Telegram callback acknowledgements expire quickly and must not poison the polling offset.
+            log.warn("Cannot acknowledge processed Telegram callback: {}", exception.getMessage());
+        }
     }
 
     private String nullableString(JsonNode node) {

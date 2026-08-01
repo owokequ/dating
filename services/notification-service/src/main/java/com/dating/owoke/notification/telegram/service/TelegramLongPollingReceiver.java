@@ -26,7 +26,9 @@ public class TelegramLongPollingReceiver {
         this.redisTemplate = redisTemplate;
     }
 
-    @Scheduled(fixedDelayString = "${owoke.telegram.polling-fixed-delay:1000}")
+    @Scheduled(
+            fixedDelayString = "${owoke.telegram.polling-fixed-delay:1000}",
+            scheduler = "telegramPollingTaskScheduler")
     public void poll() {
         long offset = currentOffset();
         for (JsonNode update : botClient.getUpdates(offset)) {
