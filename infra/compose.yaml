@@ -79,7 +79,9 @@ services:
       - redis-data:/data
 
   kafka:
-    image: apache/kafka-native:4.1.0
+    # The non-native official image avoids a GraalVM launcher crash observed
+    # with kafka-native on Docker Desktop/Windows after a clean stop/start.
+    image: apache/kafka:4.1.0
     ports:
       - "127.0.0.1:9092:9092"
     environment:
@@ -97,7 +99,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 12

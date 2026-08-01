@@ -1,0 +1,174 @@
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web-local.Dockerfile
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: api-gateway }
+    environment:
+      API_GATEWAY_PORT: 8080
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: dating-redis
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      DATING_SERVICE_URL: http://dating-service:8082
+      NOTIFICATION_SERVICE_URL: http://notification-service:8083
+      PLACES_SERVICE_URL: http://places-service:8084
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:-http://identity-service:8081}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      WEB_APP_ORIGIN: ${WEB_APP_ORIGIN:-http://localhost:5173}
+      COOKIE_SECURE: "false"
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      redis: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+  identity-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: identity-service }
+    environment:
+      IDENTITY_DB_URL: jdbc:postgresql://identity-postgres:5432/owoke_identity
+      IDENTITY_DB_USERNAME: owoke_identity
+      IDENTITY_DB_PASSWORD: owoke_identity
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: dating-redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:-http://identity-service:8081}
+      OWOKE_JWT_KEY_ID: ${OWOKE_JWT_KEY_ID:-owoke-local-1}
+      OWOKE_JWT_PRIVATE_KEY_BASE64: ${OWOKE_JWT_PRIVATE_KEY_BASE64:-}
+      OWOKE_JWT_PUBLIC_KEY_BASE64: ${OWOKE_JWT_PUBLIC_KEY_BASE64:-}
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:5173}
+      COOKIE_SECURE: "false"
+      TELEGRAM_OIDC_CLIENT_ID: ${TELEGRAM_OIDC_CLIENT_ID:-}
+      TELEGRAM_OIDC_CLIENT_SECRET: ${TELEGRAM_OIDC_CLIENT_SECRET:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_OIDC_REDIRECT_URI: ${TELEGRAM_OIDC_REDIRECT_URI:-http://localhost:8080/api/v1/auth/telegram/callback}
+    ports:
+      - "127.0.0.1:8081:8081"
+    depends_on:
+      identity-postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
+  dating-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: dating-service }
+    environment:
+      DATING_DB_URL: jdbc:postgresql://dating-postgres:5432/owoke_dating
+      DATING_DB_USERNAME: owoke_dating
+      DATING_DB_PASSWORD: owoke_dating
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:-http://identity-service:8081}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:5173}
+    ports:
+      - "127.0.0.1:8082:8082"
+    depends_on:
+      dating-postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: notification-service }
+    environment:
+      NOTIFICATION_DB_URL: jdbc:postgresql://notification-postgres:5432/owoke_notification
+      NOTIFICATION_DB_USERNAME: owoke_notification
+      NOTIFICATION_DB_PASSWORD: owoke_notification
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: dating-redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:-http://identity-service:8081}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:5173}
+      TELEGRAM_BOT_ENABLED: ${TELEGRAM_BOT_ENABLED:-false}
+      TELEGRAM_BOT_MODE: polling
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      NOTIFICATION_FROM_EMAIL: ${NOTIFICATION_FROM_EMAIL:-noreply@owoke.local}
+      MAIL_HEALTH_ENABLED: "false"
+    ports:
+      - "127.0.0.1:8083:8083"
+    depends_on:
+      notification-postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8083/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
+  places-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args: { MODULE: places-service }
+    environment:
+      PLACES_DB_URL: jdbc:postgresql://places-postgres:5432/owoke_places
+      PLACES_DB_USERNAME: owoke_places
+      PLACES_DB_PASSWORD: owoke_places
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: dating-redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      OWOKE_JWT_ISSUER: ${OWOKE_JWT_ISSUER:-http://identity-service:8081}
+      IDENTITY_JWK_SET_URI: http://identity-service:8081/.well-known/jwks.json
+      TWO_GIS_ENABLED: ${TWO_GIS_ENABLED:-false}
+      TWO_GIS_API_KEY: ${TWO_GIS_API_KEY:-}
+    ports:
+      - "127.0.0.1:8084:8084"
+    depends_on:
+      places-postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      identity-service: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8084/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s

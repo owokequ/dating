@@ -26,9 +26,49 @@ used between controller, service and repository layers inside one application.
 
 ## Local infrastructure
 
+The recommended entry point is the Windows development launcher:
+
 ```powershell
-docker-compose -f infra/compose.yaml up -d
-docker-compose -f infra/compose.yaml ps
+copy .env.local.example .env.local
+.\dev.cmd up
+```
+
+`up` starts PostgreSQL, Redis, Kafka and Mailpit in Docker, then starts the Java
+services and Vite as separately managed local processes. It waits for every
+readiness endpoint before reporting success. The terminal remains the
+supervisor: `Ctrl+C` stops only its Java/Node process trees and leaves the
+infrastructure warm for a faster next start.
+
+```powershell
+.\dev.cmd status
+.\dev.cmd logs
+.\dev.cmd logs -Follow
+.\dev.cmd down
+```
+
+`down` stops both launcher processes and Owoke containers but deliberately
+preserves containers and named volumes. It never uses `down -v`.
+On `up`, Compose may remove obsolete orphan containers left by renamed services;
+their named volumes are still preserved.
+
+For a fully containerized local run:
+
+```powershell
+.\dev.cmd docker
+.\dev.cmd logs -Follow
+.\dev.cmd down
+```
+
+This mode merges `infra/compose.yaml` with `infra/compose.full.yaml`, builds all
+applications and exposes the website at `http://localhost:5173`. Hybrid mode is
+preferred while coding because IDE debugging and incremental Java/Vite rebuilds
+are faster.
+
+The underlying infrastructure-only commands remain available:
+
+```powershell
+docker compose -f infra/compose.yaml up -d --wait
+docker compose -f infra/compose.yaml ps
 ```
 
 | Component | Local address |
@@ -78,9 +118,11 @@ npm test
 npm run build
 ```
 
-Configuration keys are documented in `.env.example`. Spring Boot does not load
-that file automatically; configure variables in the IDE or shell. Never commit
-real bot tokens, OIDC secrets, signing keys or provider API keys.
+Configuration keys are documented in `.env.local.example`. The launcher loads
+`.env.local` into its own process and all children inherit those variables.
+Existing shell variables take precedence. Spring Boot itself does not load env
+files automatically. Never commit real bot tokens, OIDC secrets, signing keys
+or provider API keys.
 
 ## Package convention
 
