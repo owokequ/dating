@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owoke.app/contracts/events/events-events-v1.schema.json",
+  "title": "Events catalog V1 payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "source", "externalId", "title", "sourcePageUrl", "venue", "status", "occurrences", "images"],
+  "properties": {
+    "eventId": {"type": "string", "format": "uuid"},
+    "source": {"const": "KUDAGO"},
+    "externalId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "title": {"type": "string", "minLength": 1, "maxLength": 300},
+    "description": {"type": ["string", "null"], "maxLength": 4000},
+    "categories": {"type": "array", "uniqueItems": true, "items": {"type": "string", "maxLength": 64}},
+    "priceText": {"type": ["string", "null"], "maxLength": 500},
+    "isFree": {"type": "boolean"},
+    "ageRestriction": {"type": ["string", "null"], "maxLength": 32},
+    "sourcePageUrl": {"type": "string", "format": "uri"},
+    "localPlaceId": {"type": ["string", "null"], "format": "uuid"},
+    "venue": {"$ref": "#/$defs/venue"},
+    "status": {"enum": ["DRAFT", "ACTIVE", "HIDDEN", "ARCHIVED"]},
+    "occurrences": {"type": "array", "items": {"$ref": "#/$defs/occurrence"}},
+    "images": {"type": "array", "maxItems": 5, "items": {"$ref": "#/$defs/image"}}
+  },
+  "$defs": {
+    "venue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "address", "latitude", "longitude"],
+      "properties": {
+        "name": {"type": ["string", "null"], "maxLength": 300},
+        "address": {"type": ["string", "null"], "maxLength": 500},
+        "latitude": {"type": ["number", "null"], "minimum": -90, "maximum": 90},
+        "longitude": {"type": ["number", "null"], "minimum": -180, "maximum": 180}
+      }
+    },
+    "occurrence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["occurrenceId", "startsAt", "endsAt", "continuous", "status"],
+      "properties": {
+        "occurrenceId": {"type": "string", "format": "uuid"},
+        "startsAt": {"type": "string", "format": "date-time"},
+        "endsAt": {"type": ["string", "null"], "format": "date-time"},
+        "continuous": {"type": "boolean"},
+        "status": {"enum": ["ACTIVE", "EXPIRED"]}
+      }
+    },
+    "image": {
+      "type": "object", "additionalProperties": false,
+      "required": ["providerAssetKey", "remoteUrl"],
+      "properties": {
+        "providerAssetKey": {"type": "string", "minLength": 1, "maxLength": 128},
+        "remoteUrl": {"type": "string", "format": "uri"},
+        "thumbnailUrl": {"type": ["string", "null"], "format": "uri"},
+        "sourceName": {"type": ["string", "null"], "maxLength": 200},
+        "sourceLink": {"type": ["string", "null"], "format": "uri"}
+      }
+    }
+  }
+}

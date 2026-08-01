@@ -1,0 +1,84 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-events-schema
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE TABLE events (
+                  id UUID PRIMARY KEY,
+                  source VARCHAR(32) NOT NULL,
+                  external_id VARCHAR(128) NOT NULL,
+                  title VARCHAR(300) NOT NULL,
+                  provider_description VARCHAR(4000),
+                  description_override VARCHAR(4000),
+                  categories VARCHAR(1000) NOT NULL,
+                  price_text VARCHAR(500),
+                  is_free BOOLEAN NOT NULL,
+                  age_restriction VARCHAR(32),
+                  source_page_url VARCHAR(1000) NOT NULL,
+                  venue_name VARCHAR(300),
+                  venue_address VARCHAR(500),
+                  latitude DOUBLE PRECISION,
+                  longitude DOUBLE PRECISION,
+                  venue_override BOOLEAN NOT NULL DEFAULT FALSE,
+                  kudago_place_id VARCHAR(128),
+                  local_place_id UUID,
+                  status VARCHAR(32) NOT NULL,
+                  last_seen_at TIMESTAMPTZ NOT NULL,
+                  missing_since TIMESTAMPTZ,
+                  missing_sync_count INTEGER NOT NULL DEFAULT 0,
+                  created_at TIMESTAMPTZ NOT NULL,
+                  updated_at TIMESTAMPTZ NOT NULL,
+                  version BIGINT NOT NULL DEFAULT 0,
+                  CONSTRAINT uk_event_source_external UNIQUE(source, external_id),
+                  CONSTRAINT ck_event_source CHECK (source IN ('KUDAGO')),
+                  CONSTRAINT ck_event_status CHECK (status IN ('DRAFT','ACTIVE','HIDDEN','ARCHIVED')),
+                  CONSTRAINT ck_event_coords CHECK ((latitude IS NULL AND longitude IS NULL) OR (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180))
+              );
+              CREATE INDEX idx_events_status_updated ON events(status, updated_at DESC);
+              CREATE INDEX idx_events_last_seen ON events(last_seen_at);
+
+              CREATE TABLE event_occurrences (
+                  id UUID PRIMARY KEY,
+                  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                  provider_occurrence_key VARCHAR(256) NOT NULL,
+                  starts_at TIMESTAMPTZ NOT NULL,
+                  ends_at TIMESTAMPTZ,
+                  continuous BOOLEAN NOT NULL,
+                  status VARCHAR(32) NOT NULL,
+                  created_at TIMESTAMPTZ NOT NULL,
+                  updated_at TIMESTAMPTZ NOT NULL,
+                  CONSTRAINT uk_event_occurrence_key UNIQUE(event_id, provider_occurrence_key),
+                  CONSTRAINT ck_event_occurrence_status CHECK (status IN ('ACTIVE','EXPIRED')),
+                  CONSTRAINT ck_event_occurrence_range CHECK (ends_at IS NULL OR ends_at >= starts_at)
+              );
+              CREATE INDEX idx_event_occurrences_future ON event_occurrences(status, starts_at);
+
+              CREATE TABLE event_images (
+                  id UUID PRIMARY KEY,
+                  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                  provider_asset_key VARCHAR(128) NOT NULL,
+                  remote_url VARCHAR(1000) NOT NULL,
+                  thumbnail_url VARCHAR(1000),
+                  source_name VARCHAR(200),
+                  source_link VARCHAR(1000),
+                  position INTEGER NOT NULL,
+                  CONSTRAINT uk_event_image_provider UNIQUE(event_id, provider_asset_key),
+                  CONSTRAINT ck_event_image_position CHECK(position BETWEEN 0 AND 4)
+              );
+
+              CREATE TABLE outbox_events (
+                  id UUID PRIMARY KEY,
+                  topic VARCHAR(128) NOT NULL,
+                  event_key VARCHAR(128) NOT NULL,
+                  event_type VARCHAR(128) NOT NULL,
+                  payload JSONB NOT NULL,
+                  occurred_at TIMESTAMPTZ NOT NULL,
+                  published_at TIMESTAMPTZ,
+                  attempts INTEGER NOT NULL DEFAULT 0,
+                  next_attempt_at TIMESTAMPTZ NOT NULL,
+                  last_error VARCHAR(1000)
+              );
+              CREATE INDEX idx_events_outbox_pending ON outbox_events(published_at, next_attempt_at);

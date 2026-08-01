@@ -26,6 +26,7 @@
         <module>services/notification-service</module>
         <module>services/places-service</module>
         <module>services/media-service</module>
+        <module>services/events-service</module>
     </modules>
 
     <properties>

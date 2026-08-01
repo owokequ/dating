@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: events-service
+  datasource:
+    url: ${EVENTS_DB_URL:jdbc:postgresql://localhost:15437/owoke_events}
+    username: ${EVENTS_DB_USERNAME:owoke_events}
+    password: ${EVENTS_DB_PASSWORD:owoke_events}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:default}
+      password: ${REDIS_PASSWORD:dating-redis}
+      database: ${EVENTS_REDIS_DATABASE:4}
+      repositories:
+        enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+server:
+  port: ${EVENTS_SERVICE_PORT:8086}
+
+owoke:
+  security:
+    issuer: ${OWOKE_JWT_ISSUER:http://localhost:8081}
+    audience: ${OWOKE_JWT_AUDIENCE:owoke-api}
+    jwk-set-uri: ${IDENTITY_JWK_SET_URI:http://localhost:8081/.well-known/jwks.json}
+  kudago:
+    enabled: ${KUDAGO_EVENTS_ENABLED:true}
+    schedule-enabled: ${KUDAGO_EVENTS_SCHEDULE_ENABLED:true}
+    base-url: https://kudago.com
+    location: kzn
+    horizon: ${KUDAGO_EVENTS_HORIZON:P90D}
+    sync-delay: ${KUDAGO_EVENTS_SYNC_DELAY:PT6H}
+    page-size: 100
+    categories: cinema,concert,entertainment,exhibition,festival,party,quest,recreation,theater,tour
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
