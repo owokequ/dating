@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,7 +21,9 @@ import org.springframework.web.multipart.MultipartFile;
 import com.dating.owoke.media.asset.dto.MediaUploadResponse;
 import com.dating.owoke.media.asset.service.MediaUploadService;
 import com.dating.owoke.media.collection.dto.ReorderMediaCollectionRequest;
+import com.dating.owoke.media.collection.dto.MediaCollectionResponse;
 import com.dating.owoke.media.collection.service.MediaCollectionCommandService;
+import com.dating.owoke.media.collection.service.MediaCollectionQueryService;
 
 import jakarta.validation.Valid;
 
@@ -30,12 +33,20 @@ public class AdminMediaCollectionController {
 
     private final MediaUploadService uploadService;
     private final MediaCollectionCommandService commandService;
+    private final MediaCollectionQueryService queryService;
 
     public AdminMediaCollectionController(
             MediaUploadService uploadService,
-            MediaCollectionCommandService commandService) {
+            MediaCollectionCommandService commandService,
+            MediaCollectionQueryService queryService) {
         this.uploadService = uploadService;
         this.commandService = commandService;
+        this.queryService = queryService;
+    }
+
+    @GetMapping("/{placeId}")
+    MediaCollectionResponse get(@PathVariable UUID placeId) {
+        return queryService.getAdmin(placeId);
     }
 
     @PostMapping(path = "/{placeId}/assets", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -63,7 +63,7 @@ public class MediaUploadService {
     public MediaUploadResponse upload(UUID placeId, UUID uploadedBy, MultipartFile file) {
         PlaceProjection place = placeRepository.lockById(placeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Place is not available in media projection yet"));
-        if (!place.isActive()) {
+        if (!place.acceptsUploads()) {
             throw new BusinessConflictException("Images cannot be added to an archived place");
         }
 

@@ -20,7 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 public class PlaceEventProcessor {
 
     private static final Set<String> SUPPORTED_EVENTS = Set.of(
-            "PlacePublishedV1", "PlaceUpdatedV1", "PlaceArchivedV1");
+            "PlaceDraftedV1", "PlacePublishedV1", "PlaceUpdatedV1", "PlaceArchivedV1");
 
     private final InboxEventRepository inboxRepository;
     private final PlaceProjectionService projectionService;

@@ -20,7 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 public class PlaceEventProcessor {
 
     private static final Set<String> SUPPORTED_EVENTS = Set.of(
-            "PlacePublishedV1", "PlaceUpdatedV1", "PlaceArchivedV1");
+            "PlaceDraftedV1", "PlacePublishedV1", "PlaceUpdatedV1", "PlaceArchivedV1");
 
     private final InboxEventRepository inboxRepository;
     private final PlaceProjectionService projectionService;
@@ -47,11 +47,14 @@ public class PlaceEventProcessor {
         }
 
         PlaceChangedV1 payload = objectMapper.treeToValue(envelope.payload(), PlaceChangedV1.class);
+        PlaceProjectionStatus status = "DRAFT".equals(payload.status())
+                ? PlaceProjectionStatus.ARCHIVED
+                : PlaceProjectionStatus.valueOf(payload.status());
         projectionService.upsert(
                 payload.placeId(),
                 payload.name(),
                 payload.address(),
-                PlaceProjectionStatus.valueOf(payload.status()),
+                status,
                 envelope.occurredAt());
         inboxRepository.saveAndFlush(new InboxEvent(
                 envelope.eventId(), envelope.eventType(), topic, clock.instant()));

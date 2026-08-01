@@ -51,4 +51,8 @@ public class PlaceProjection {
     public boolean isActive() {
         return status == PlaceProjectionStatus.ACTIVE;
     }
+
+    public boolean acceptsUploads() {
+        return status == PlaceProjectionStatus.DRAFT || status == PlaceProjectionStatus.ACTIVE;
+    }
 }

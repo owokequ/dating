@@ -17,6 +17,8 @@ import com.dating.owoke.media.collection.domain.MediaOwnerType;
 import com.dating.owoke.media.collection.dto.MediaCollectionResponse;
 import com.dating.owoke.media.collection.repository.MediaCollectionItemRepository;
 import com.dating.owoke.media.collection.repository.MediaCollectionRepository;
+import com.dating.owoke.media.collection.repository.PlaceProjectionRepository;
+import com.dating.owoke.media.shared.exception.ResourceNotFoundException;
 
 @Service
 public class MediaCollectionQueryService {
@@ -24,18 +26,38 @@ public class MediaCollectionQueryService {
     private final MediaCollectionItemRepository itemRepository;
     private final MediaCollectionRepository collectionRepository;
     private final MediaAssetRepository assetRepository;
+    private final PlaceProjectionRepository placeRepository;
 
     public MediaCollectionQueryService(
             MediaCollectionItemRepository itemRepository,
             MediaCollectionRepository collectionRepository,
-            MediaAssetRepository assetRepository) {
+            MediaAssetRepository assetRepository,
+            PlaceProjectionRepository placeRepository) {
         this.itemRepository = itemRepository;
         this.collectionRepository = collectionRepository;
         this.assetRepository = assetRepository;
+        this.placeRepository = placeRepository;
     }
 
     @Transactional(readOnly = true)
-    public MediaCollectionResponse get(UUID placeId) {
+    public MediaCollectionResponse getPublic(UUID placeId) {
+        var place = placeRepository.findById(placeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Place media collection is not available"));
+        if (!place.isActive()) {
+            throw new ResourceNotFoundException("Place media collection is not available");
+        }
+        return assemble(placeId);
+    }
+
+    @Transactional(readOnly = true)
+    public MediaCollectionResponse getAdmin(UUID placeId) {
+        if (!placeRepository.existsById(placeId)) {
+            throw new ResourceNotFoundException("Place media collection is not available");
+        }
+        return assemble(placeId);
+    }
+
+    private MediaCollectionResponse assemble(UUID placeId) {
         var items = itemRepository.findActive(MediaOwnerType.PLACE, placeId);
         Map<UUID, MediaAsset> assets = assetRepository.findAllById(
                         items.stream().map(MediaCollectionItem::getMediaAssetId).toList())

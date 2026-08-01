@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-add-draft-place-projection
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE place_projections DROP CONSTRAINT ck_media_place_status;
+              ALTER TABLE place_projections ADD CONSTRAINT ck_media_place_status
+                  CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'));

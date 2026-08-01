@@ -22,6 +22,6 @@ public class MediaCollectionController {
 
     @GetMapping("/{placeId}")
     MediaCollectionResponse get(@PathVariable UUID placeId) {
-        return service.get(placeId);
+        return service.getPublic(placeId);
     }
 }
