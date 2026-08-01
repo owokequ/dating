@@ -23,12 +23,19 @@ export function PlacesPage() {
         <div className="card-grid">
           {places.data.items.map((place) => (
             <article className="place-card" key={place.id}>
+              <a className="place-cover" href={`/places/${place.id}`}>
+                <img src={place.images.find((image) => image.cover)?.cardUrl ?? '/place-placeholder.svg'}
+                  alt={place.coverMediaId ? `Обложка места ${place.name}` : ''} />
+              </a>
               <div><span className="eyebrow">{place.category}</span><h2>{place.name}</h2></div>
               <p>{place.description || 'Описание появится после обновления каталога.'}</p>
               <address>{place.address}</address>
               <div className="card-actions">
                 <span>{place.priceLevel ? '₽'.repeat(place.priceLevel) : 'Цена не указана'}</span>
-                <a className="button small" href={`/dates/new?placeId=${place.id}`}>Выбрать</a>
+                <div className="card-button-group">
+                  <a className="button secondary small" href={`/places/${place.id}`}>Подробнее</a>
+                  <a className="button small" href={`/dates/new?placeId=${place.id}`}>Выбрать</a>
+                </div>
               </div>
             </article>
           ))}

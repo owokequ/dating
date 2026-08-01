@@ -7,6 +7,7 @@ import { useSession } from '../../../auth/api/authApi'
 import { getPlaces } from '../../../places/api/placesApi'
 import { archivePlace, createPlace } from '../api/adminPlacesApi'
 import { adminPlaceSchema, placeCategories } from '../schemas'
+import { PlaceMediaManager } from '../ui/PlaceMediaManager'
 
 type FormValues = z.infer<typeof adminPlaceSchema>
 
@@ -102,17 +103,17 @@ export function AdminPlacesPage() {
         <div className="panel admin-place-list">
           <div className="section-heading"><h2>Активные места</h2><span>{places.data?.totalElements ?? 0}</span></div>
           {places.isLoading ? <Loading /> : places.data?.items.length ? places.data.items.map((place) => (
-            <article key={place.id}>
-              <div>
+            <article className="admin-place-item" key={place.id}>
+              <div className="admin-place-summary">
+                <div>
                 <span className="eyebrow">{place.category}</span>
                 <h3>{place.name}</h3>
                 <address>{place.address}</address>
+                </div>
+                <button className="danger small" disabled={archive.isPending}
+                  onClick={() => archive.mutate(place)}>Архивировать</button>
               </div>
-              <button
-                className="danger small"
-                disabled={archive.isPending}
-                onClick={() => archive.mutate(place)}
-              >Архивировать</button>
+              <PlaceMediaManager placeId={place.id} placeName={place.name} />
             </article>
           )) : <p className="muted">Активных мест пока нет.</p>}
           <ErrorMessage error={places.error ?? archive.error} />

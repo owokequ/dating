@@ -48,7 +48,9 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}, all
   if (unsafeMethods.has(method)) await ensureCsrf()
 
   const headers = new Headers(options.headers)
-  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
   if (unsafeMethods.has(method)) headers.set('X-XSRF-TOKEN', readCookie('XSRF-TOKEN') ?? '')
 
   let response = await fetch(path, { ...options, method, headers, credentials: 'include' })

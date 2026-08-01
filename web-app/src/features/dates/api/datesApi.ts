@@ -11,6 +11,7 @@ export type DateProposal = {
   placeId: string
   placeName: string
   placeAddress: string
+  placeCoverMediaId: string | null
   description: string | null
   status: DateStatus
   createdAt: string

@@ -12,6 +12,17 @@ export type Place = {
   priceLevel: number | null
   source: 'MANUAL' | 'TWO_GIS'
   status: 'ACTIVE' | 'ARCHIVED'
+  coverMediaId: string | null
+  images: PlaceImage[]
+}
+
+export type PlaceImage = {
+  mediaId: string
+  position: number
+  cover: boolean
+  thumbnailUrl: string
+  cardUrl: string
+  detailUrl: string
 }
 
 export type PlacePage = { items: Place[]; page: number; size: number; totalElements: number; totalPages: number }
@@ -22,3 +33,5 @@ export function getPlaces(filters: { category?: string; query?: string; page?: n
   if (filters.query) params.set('query', filters.query)
   return apiRequest<PlacePage>(`/api/v1/places?${params}`)
 }
+
+export const getPlace = (placeId: string) => apiRequest<Place>(`/api/v1/places/${placeId}`)

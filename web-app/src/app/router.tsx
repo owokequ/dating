@@ -11,6 +11,7 @@ import { InvitationPage } from '../features/invitation/pages/InvitationPage'
 import { NewDatePage } from '../features/dates/pages/NewDatePage'
 import { DateDetailsPage } from '../features/dates/pages/DateDetailsPage'
 import { PlacesPage } from '../features/places/pages/PlacesPage'
+import { PlaceDetailsPage } from '../features/places/pages/PlaceDetailsPage'
 import { SettingsPage } from '../features/settings/pages/SettingsPage'
 import { NotificationsPage } from '../features/notifications/pages/NotificationsPage'
 import { AdminPlacesPage } from '../features/admin/places/pages/AdminPlacesPage'
@@ -42,6 +43,7 @@ const routeTree = rootRoute.addChildren([
   route('/dates/new', NewDatePage),
   route('/dates/$dateId', DateDetailsPage),
   route('/places', PlacesPage),
+  route('/places/$placeId', PlaceDetailsPage),
   route('/settings', SettingsPage),
   route('/notifications', NotificationsPage),
   route('/admin/places', AdminPlacesPage),

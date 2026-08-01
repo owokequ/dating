@@ -29,6 +29,11 @@ export function DateDetailsPage() {
     <section>
       <PageTitle eyebrow="Свидание" title={proposal.data.placeName}>{formatDateTime(proposal.data.scheduledAt)}</PageTitle>
       <article className="panel date-detail">
+        <img className="date-detail-cover"
+          src={proposal.data.placeCoverMediaId
+            ? `/api/v1/media/assets/${proposal.data.placeCoverMediaId}/content?variant=DETAIL`
+            : '/place-placeholder.svg'}
+          alt={`Обложка места ${proposal.data.placeName}`} />
         <span className={`status ${proposal.data.status.toLowerCase()}`}>{proposal.data.status.replaceAll('_', ' ')}</span>
         <address>{proposal.data.placeAddress}</address>
         {proposal.data.description && <blockquote>{proposal.data.description}</blockquote>}
