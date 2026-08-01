@@ -5,12 +5,16 @@ import { useState } from 'react'
 import type { z } from 'zod'
 import { ErrorMessage, Loading, PageTitle } from '../../../../shared/ui/Feedback'
 import { useSession } from '../../../auth/api/authApi'
-import { getPlaces } from '../../../places/api/placesApi'
-import { archivePlace, createPlace } from '../api/adminPlacesApi'
+import {
+  createPlace,
+  getAdminPlaces,
+  syncTwoGis,
+  type PlaceStatus,
+} from '../api/adminPlacesApi'
 import { uploadPlaceImageWhenProjectionIsReady } from '../api/adminMediaApi'
 import { adminPlaceSchema, placeCategories } from '../schemas'
+import { AdminPlaceCard } from '../ui/AdminPlaceCard'
 import { PlaceImagePicker } from '../ui/PlaceImagePicker'
-import { PlaceMediaManager } from '../ui/PlaceMediaManager'
 
 type FormValues = z.infer<typeof adminPlaceSchema>
 type CreateCommand = { values: FormValues; images: File[] }
@@ -25,16 +29,30 @@ const defaultValues: FormValues = {
   priceLevel: 2,
 }
 
+const statusTabs: { status: PlaceStatus; label: string }[] = [
+  { status: 'DRAFT', label: 'Черновики' },
+  { status: 'ACTIVE', label: 'Активные' },
+  { status: 'ARCHIVED', label: 'Архив' },
+]
+
 export function AdminPlacesPage() {
   const session = useSession()
   const isAdmin = session.data?.role === 'ADMIN'
   const queryClient = useQueryClient()
   const [images, setImages] = useState<File[]>([])
+  const [status, setStatus] = useState<PlaceStatus>('DRAFT')
   const form = useForm<FormValues>({ resolver: zodResolver(adminPlaceSchema), defaultValues })
   const places = useQuery({
-    queryKey: ['places', 'admin'],
-    queryFn: () => getPlaces(),
+    queryKey: ['admin-places', status],
+    queryFn: () => getAdminPlaces(status),
     enabled: isAdmin,
+  })
+  const sync = useMutation({
+    mutationFn: syncTwoGis,
+    onSuccess: async () => {
+      setStatus('DRAFT')
+      await queryClient.invalidateQueries({ queryKey: ['admin-places'] })
+    },
   })
   const create = useMutation({
     mutationFn: async ({ values, images: selectedImages }: CreateCommand) => {
@@ -58,12 +76,12 @@ export function AdminPlacesPage() {
     onSuccess: async () => {
       form.reset(defaultValues)
       setImages([])
-      await queryClient.invalidateQueries({ queryKey: ['places'] })
+      setStatus('ACTIVE')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['places'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-places'] }),
+      ])
     },
-  })
-  const archive = useMutation({
-    mutationFn: archivePlace,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['places'] }),
   })
 
   if (session.isLoading) return <Loading />
@@ -89,8 +107,32 @@ export function AdminPlacesPage() {
   return (
     <section>
       <PageTitle eyebrow="Admin" title="Управление местами">
-        Создание и архивирование проходят через Places Service, поэтому каждое изменение публикуется в Kafka.
+        Импортируйте места из 2GIS в черновики, добавьте собственные фотографии и публикуйте только проверенные карточки.
       </PageTitle>
+      <section className="panel admin-sync-panel">
+        <div>
+          <h2>Импорт из 2GIS</h2>
+          <p className="muted">Ручная синхронизация получает кафе, рестораны и развлечения Казани. Новые места не видны пользователям до публикации.</p>
+        </div>
+        <button type="button" disabled={sync.isPending} onClick={() => sync.mutate()}>
+          {sync.isPending ? 'Синхронизируем…' : 'Синхронизировать с 2GIS'}
+        </button>
+        {sync.data && (
+          <div className="sync-result" role="status">
+            <span>Получено: <strong>{sync.data.received}</strong></span>
+            <span>Создано: <strong>{sync.data.created}</strong></span>
+            <span>Обновлено: <strong>{sync.data.updated}</strong></span>
+            <span>Без изменений: <strong>{sync.data.unchanged}</strong></span>
+            <span>Дубликаты: <strong>{sync.data.duplicates}</strong></span>
+          </div>
+        )}
+        {sync.data?.failures.map((failure) => (
+          <p className="message warning" key={`${failure.category}-${failure.page}`}>
+            {failure.category}, страница {failure.page}: {failure.reason}
+          </p>
+        ))}
+        <ErrorMessage error={sync.error} />
+      </section>
       <div className="admin-grid">
         <form className="panel admin-place-form" onSubmit={form.handleSubmit((values) => create.mutate({ values, images }))}>
           <h2>Новое место</h2>
@@ -133,22 +175,29 @@ export function AdminPlacesPage() {
         </form>
 
         <div className="panel admin-place-list">
-          <div className="section-heading"><h2>Активные места</h2><span>{places.data?.totalElements ?? 0}</span></div>
+          <div className="section-heading"><h2>Каталог</h2><span>{places.data?.totalElements ?? 0}</span></div>
+          <div className="admin-status-tabs" role="tablist" aria-label="Статус места">
+            {statusTabs.map((tab) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={status === tab.status}
+                className={status === tab.status ? 'small' : 'secondary small'}
+                key={tab.status}
+                onClick={() => setStatus(tab.status)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
           {places.isLoading ? <Loading /> : places.data?.items.length ? places.data.items.map((place) => (
-            <article className="admin-place-item" key={place.id}>
-              <div className="admin-place-summary">
-                <div>
-                <span className="eyebrow">{place.category}</span>
-                <h3>{place.name}</h3>
-                <address>{place.address}</address>
-                </div>
-                <button className="danger small" disabled={archive.isPending}
-                  onClick={() => archive.mutate(place)}>Архивировать</button>
-              </div>
-              <PlaceMediaManager placeId={place.id} placeName={place.name} />
-            </article>
-          )) : <p className="muted">Активных мест пока нет.</p>}
-          <ErrorMessage error={places.error ?? archive.error} />
+            <AdminPlaceCard
+              key={place.id}
+              place={place}
+              onChanged={() => queryClient.invalidateQueries({ queryKey: ['admin-places'] })}
+            />
+          )) : <p className="muted">В этом разделе мест пока нет.</p>}
+          <ErrorMessage error={places.error} />
         </div>
       </div>
     </section>

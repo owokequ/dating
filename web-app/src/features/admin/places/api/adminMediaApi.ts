@@ -18,7 +18,7 @@ export type MediaCollection = {
 }
 
 export const getPlaceMedia = (placeId: string) => apiRequest<MediaCollection>(
-  `/api/v1/media/place-collections/${placeId}`,
+  `/api/v1/admin/media/place-collections/${placeId}`,
 )
 
 export const uploadPlaceImage = (placeId: string, file: File) => {

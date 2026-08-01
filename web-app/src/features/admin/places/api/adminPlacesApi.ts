@@ -1,5 +1,22 @@
 import { apiRequest, jsonBody } from '../../../../shared/api/http'
-import type { Place } from '../../../places/api/placesApi'
+import type { Place, PlacePage } from '../../../places/api/placesApi'
+
+export type PlaceStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
+
+export type SyncFailure = {
+  category: string
+  page: number
+  reason: string
+}
+
+export type TwoGisSyncResult = {
+  received: number
+  created: number
+  updated: number
+  unchanged: number
+  duplicates: number
+  failures: SyncFailure[]
+}
 
 export type CreatePlaceInput = {
   name: string
@@ -11,7 +28,7 @@ export type CreatePlaceInput = {
   priceLevel: number
 }
 
-type UpdatePlaceInput = {
+export type UpdatePlaceInput = {
   name: string
   description: string | null
   category: string
@@ -19,8 +36,18 @@ type UpdatePlaceInput = {
   latitude: number
   longitude: number
   priceLevel: number | null
-  status: 'ACTIVE' | 'ARCHIVED'
+  status: PlaceStatus
 }
+
+export function getAdminPlaces(status: PlaceStatus, page = 0) {
+  const params = new URLSearchParams({ status, page: String(page), size: '100' })
+  return apiRequest<PlacePage>(`/api/v1/admin/places?${params}`)
+}
+
+export const syncTwoGis = () => apiRequest<TwoGisSyncResult>(
+  '/api/v1/admin/places/sync',
+  { method: 'POST' },
+)
 
 export const createPlace = (input: CreatePlaceInput) => apiRequest<Place>(
   '/api/v1/admin/places',
@@ -41,4 +68,20 @@ export const archivePlace = (place: Place) => updatePlace(place.id, {
   longitude: place.longitude,
   priceLevel: place.priceLevel,
   status: 'ARCHIVED',
+})
+
+export const savePlaceModeration = (
+  place: Place,
+  description: string | null,
+  priceLevel: number | null,
+  status: PlaceStatus,
+) => updatePlace(place.id, {
+  name: place.name,
+  description,
+  category: place.category,
+  address: place.address,
+  latitude: place.latitude,
+  longitude: place.longitude,
+  priceLevel,
+  status,
 })

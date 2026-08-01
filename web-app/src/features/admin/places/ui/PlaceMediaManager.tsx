@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { ErrorMessage, Loading } from '../../../../shared/ui/Feedback'
 import {
   deletePlaceImage,
@@ -9,18 +9,25 @@ import {
   type MediaCollection,
 } from '../api/adminMediaApi'
 
-type Props = { placeId: string; placeName: string }
+type Props = {
+  placeId: string
+  placeName: string
+  onCollectionChange?: (collection: MediaCollection | undefined) => void
+}
 
-export function PlaceMediaManager({ placeId, placeName }: Props) {
+export function PlaceMediaManager({ placeId, placeName, onCollectionChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
   const mediaKey = ['place-media', placeId]
   const media = useQuery({
     queryKey: mediaKey,
     queryFn: () => getPlaceMedia(placeId),
+    retry: 8,
+    retryDelay: (attempt) => Math.min(250 * 2 ** attempt, 1500),
     refetchInterval: (query) => query.state.data?.images.some((image) =>
       image.status === 'UPLOADED' || image.status === 'PROCESSING') ? 1500 : false,
   })
+  useEffect(() => onCollectionChange?.(media.data), [media.data, onCollectionChange])
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: mediaKey })
     await queryClient.invalidateQueries({ queryKey: ['places'] })

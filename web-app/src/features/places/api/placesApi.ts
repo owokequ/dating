@@ -11,7 +11,7 @@ export type Place = {
   longitude: number
   priceLevel: number | null
   source: 'MANUAL' | 'TWO_GIS'
-  status: 'ACTIVE' | 'ARCHIVED'
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
   coverMediaId: string | null
   images: PlaceImage[]
 }
