@@ -49,6 +49,16 @@
   .quick-actions, .date-list, .card-grid, .member-grid, .settings-grid, .filters, .admin-sync-panel, .coordinate-grid, .admin-place-editor, .admin-event-venue { grid-template-columns: 1fr; }
   .quick-actions { gap: .65rem; }
   .quick-actions a { min-height: 88px; }
+  .catalog-heading { gap: .75rem; }
+  .catalog-count { min-width: 64px; font-size: 3rem; }
+  .catalog-count small { display: none; }
+  .catalog-mark { width: 66px; height: 66px; flex: 0 0 auto; font-size: 2.2rem; }
+  .catalog-mark svg { width: 18px; margin: -46px 0 0 44px; }
+  .catalog-toolbar { padding: .85rem; }
+  .event-filters { display: grid; grid-template-columns: 1fr; }
+  .category-chips-scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .2rem; scrollbar-width: none; }
+  .category-chips-scroll::-webkit-scrollbar { display: none; }
+  .category-chips-scroll button { flex: 0 0 auto; }
   .love-seal { width: 62px; height: 62px; flex: 0 0 auto; font-size: 2.6rem; }
   .dashboard-intro { gap: .75rem; }
   .callout, .notification { align-items: flex-start; flex-direction: column; }
@@ -59,6 +69,7 @@
   .card-button-group, .card-button-group .button { width: 100%; }
   .place-detail-hero, .place-detail-hero > img { min-height: 420px; height: 420px; }
   .place-detail-hero { border-radius: 32px 32px 32px 10px; }
+  .place-story-panel, .event-story-panel { position: static; }
   .place-detail-overlay { bottom: 1.7rem; left: 1.4rem; }
   .place-detail-overlay h1 { font-size: 3.3rem; }
   .place-gallery { grid-template-columns: 1fr; }

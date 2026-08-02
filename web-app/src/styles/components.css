@@ -81,5 +81,5 @@ footer { display: flex; justify-content: center; align-items: center; gap: .7rem
 .checkbox-label { display: flex; align-items: center; gap: .55rem; white-space: nowrap; }
 .checkbox-label input { width: auto; min-height: 0; accent-color: var(--cherry); }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.8rem; color: var(--muted); }
-.source-link { display: inline-flex; width: fit-content; margin-top: .8rem; color: var(--cherry-deep); text-decoration: underline; text-decoration-color: var(--petal); text-underline-offset: .25em; font-size: .8rem; }
+.source-link { display: inline-flex; width: fit-content; margin-top: .8rem; align-items: center; gap: .25rem; color: var(--cherry-deep); text-decoration: underline; text-decoration-color: var(--petal); text-underline-offset: .25em; font-size: .8rem; }
 @keyframes spin { to { transform: rotate(360deg); } }

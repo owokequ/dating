@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
+import { ArrowRight, ArrowUpRight, CalendarDays, MapPin, Ticket } from 'lucide-react'
 import { formatDateTime } from '../../../shared/lib/date'
 import { ErrorMessage, Loading } from '../../../shared/ui/Feedback'
 import { eventCover, getEvent } from '../api/eventsApi'
@@ -27,30 +28,32 @@ export function EventDetailsPage() {
         <div className="place-detail-overlay">
           <span className="eyebrow">{data.categories.join(' · ') || 'Событие'} · Казань</span>
           <h1>{data.title}</h1>
-          <address>{data.venueName}{data.venueAddress ? ` · ${data.venueAddress}` : ''}</address>
+          <address className="icon-line"><MapPin size={18} />{data.venueName}{data.venueAddress ? ` · ${data.venueAddress}` : ''}</address>
         </div>
       </div>
       <div className="event-detail-layout">
-        <article className="panel event-description">
+        <article className="panel event-description event-story-panel">
+          <span className="eyebrow">Об этом вечере</span>
           <p>{data.description || data.providerDescription || 'Описание события скоро появится.'}</p>
           <div className="place-facts">
-            <span>{data.free ? 'Бесплатно' : data.priceText || 'Цена не указана'}</span>
+            <span className="icon-line"><Ticket size={18} />{data.free ? 'Бесплатно' : data.priceText || 'Цена не указана'}</span>
             {data.ageRestriction && <span>{data.ageRestriction}</span>}
           </div>
           <a className="source-link" href={data.sourcePageUrl} target="_blank" rel="noopener noreferrer">
-            Источник и подробности: KudaGo ↗
+            Источник и подробности: KudaGo <ArrowUpRight size={14} />
           </a>
         </article>
         <aside className="panel occurrence-panel">
-          <h2>Выберите сеанс</h2>
+          <span className="eyebrow">Шаг к приглашению</span>
+          <h2>Когда пойдём?</h2>
           {occurrences.length ? occurrences.map((occurrence) => (
             <div className="occurrence-row" key={occurrence.id}>
               <div>
-                <strong>{formatDateTime(occurrence.startsAt)}</strong>
+                <strong className="icon-line"><CalendarDays size={17} />{formatDateTime(occurrence.startsAt)}</strong>
                 {occurrence.continuous && occurrence.endsAt && <small>Можно выбрать время до {formatDateTime(occurrence.endsAt)}</small>}
               </div>
               <a className="button small" href={`/dates/new?eventId=${data.id}&eventOccurrenceId=${occurrence.id}`}>
-                Выбрать
+                Выбрать <ArrowRight size={15} />
               </a>
             </div>
           )) : <p className="muted">Доступных сеансов пока нет.</p>}
