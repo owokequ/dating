@@ -168,7 +168,7 @@ class NotificationServiceApplicationTests {
     }
 
     @Test
-    void acceptedDateSchedulesFutureRemindersAndCancellationStopsThem() {
+    void acceptedDateRequestsPersonalReminderChoicesAndCancellationClearsContexts() {
         UUID proposerId = UUID.randomUUID();
         UUID responderId = UUID.randomUUID();
         processUserRegistered(proposerId, "Alice", "alice@example.com");
@@ -182,8 +182,11 @@ class NotificationServiceApplicationTests {
                 UUID.randomUUID(), "DateProposalAcceptedV1", proposalId, accepted));
 
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM scheduled_notifications WHERE status = 'PENDING'", Integer.class))
-                .isEqualTo(4);
+                "SELECT count(*) FROM notifications WHERE type = 'DATE_REMINDER_SELECTION'", Integer.class))
+                .isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM date_reminder_contexts", Integer.class))
+                .isEqualTo(2);
 
         Map<String, Object> cancelled = statusPayload(
                 proposalId, proposerId, responderId, proposerId, scheduledAt, "CANCELLED");
@@ -191,8 +194,8 @@ class NotificationServiceApplicationTests {
                 UUID.randomUUID(), "DateProposalCancelledV1", proposalId, cancelled));
 
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM scheduled_notifications WHERE status = 'CANCELLED'", Integer.class))
-                .isEqualTo(4);
+                "SELECT count(*) FROM date_reminder_contexts", Integer.class))
+                .isZero();
     }
 
     @Test

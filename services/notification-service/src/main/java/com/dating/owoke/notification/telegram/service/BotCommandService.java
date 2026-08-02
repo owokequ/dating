@@ -1,7 +1,11 @@
 package com.dating.owoke.notification.telegram.service;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +17,9 @@ import com.dating.owoke.notification.shared.messaging.service.OutboxService;
 import com.dating.owoke.notification.shared.configuration.NotificationProperties;
 import com.dating.owoke.notification.telegram.domain.TelegramUpdate;
 import com.dating.owoke.notification.telegram.domain.DateProposalCallback;
+import com.dating.owoke.notification.telegram.domain.ReminderCallback;
+import com.dating.owoke.notification.telegram.dto.TelegramInlineButton;
+import com.dating.owoke.notification.reminder.service.ReminderService;
 import com.dating.owoke.notification.telegram.messaging.event.DateProposalDecisionRequestedV1;
 import com.dating.owoke.notification.telegram.repository.TelegramUpdateRepository;
 
@@ -27,6 +34,9 @@ public class BotCommandService {
     private final NotificationPreferenceRepository preferenceRepository;
     private final TelegramUpdateRepository updateRepository;
     private final TelegramDecisionService decisionService;
+    private final ReminderService reminderService;
+    private final StringRedisTemplate redisTemplate;
+    private final TelegramBotClient telegramClient;
     private final NotificationProperties notificationProperties;
     private final Clock clock;
 
@@ -36,6 +46,9 @@ public class BotCommandService {
             NotificationPreferenceRepository preferenceRepository,
             TelegramUpdateRepository updateRepository,
             TelegramDecisionService decisionService,
+            ReminderService reminderService,
+            StringRedisTemplate redisTemplate,
+            TelegramBotClient telegramClient,
             NotificationProperties notificationProperties,
             Clock clock) {
         this.outboxService = outboxService;
@@ -43,6 +56,9 @@ public class BotCommandService {
         this.preferenceRepository = preferenceRepository;
         this.updateRepository = updateRepository;
         this.decisionService = decisionService;
+        this.reminderService = reminderService;
+        this.redisTemplate = redisTemplate;
+        this.telegramClient = telegramClient;
         this.notificationProperties = notificationProperties;
         this.clock = clock;
     }
@@ -55,7 +71,10 @@ public class BotCommandService {
         }
         String command = text == null ? "" : text.trim();
         BotReply reply;
-        if (command.startsWith("/start link_")) {
+        UUID pendingProposal = pendingReminder(telegramUserId);
+        if (pendingProposal != null) {
+            reply = handleReminderMinutes(telegramUserId, chatId, pendingProposal, command);
+        } else if (command.startsWith("/start link_")) {
             String linkToken = command.substring("/start link_".length()).trim();
             if (linkToken.isEmpty()) {
                 reply = new BotReply(chatId, "Ссылка привязки повреждена. Создайте новую на сайте For my L.");
@@ -93,13 +112,15 @@ public class BotCommandService {
             return new BotReply(processed.getChatId(), processed.getReplyText());
         }
 
-        DateProposalCallback decision = DateProposalCallback.decode(callbackData);
         ContactProjection contact = contactRepository.findByTelegramUserId(telegramUserId).orElse(null);
         BotReply reply;
         if (contact == null || contact.getTelegramChatId() == null
                 || contact.getTelegramChatId().longValue() != chatId) {
             reply = new BotReply(chatId, "Сначала привяжите этот Telegram-аккаунт к For my L.");
+        } else if (ReminderCallback.isReminder(callbackData)) {
+            reply = handleReminderCallback(contact, telegramUserId, chatId, ReminderCallback.decode(callbackData));
         } else {
+            DateProposalCallback decision = DateProposalCallback.decode(callbackData);
             java.util.UUID requestId = outboxService.enqueue(
                     DATING_COMMANDS_TOPIC,
                     decision.coupleId().toString(),
@@ -114,6 +135,80 @@ public class BotCommandService {
         }
         updateRepository.save(new TelegramUpdate(updateId, reply.chatId(), reply.text(), clock.instant()));
         return reply;
+    }
+
+    private BotReply handleReminderCallback(ContactProjection contact, long telegramUserId, long chatId, ReminderCallback callback) {
+        try {
+            return switch (callback.action()) {
+                case "3h" -> confirmReminder(chatId, callback.proposalId(), contact.getUserId(), 180);
+                case "1h" -> confirmReminder(chatId, callback.proposalId(), contact.getUserId(), 60);
+                case "30m" -> confirmReminder(chatId, callback.proposalId(), contact.getUserId(), 30);
+                case "15m" -> confirmReminder(chatId, callback.proposalId(), contact.getUserId(), 15);
+                case "45m" -> confirmReminder(chatId, callback.proposalId(), contact.getUserId(), 45);
+                case "90m" -> confirmReminder(chatId, callback.proposalId(), contact.getUserId(), 90);
+                case "pick" -> {
+                    telegramClient.send(chatId, "Выберите свой интервал для напоминания:", null, List.of(
+                            new TelegramInlineButton("15 минут", new ReminderCallback("15m", callback.proposalId()).encode()),
+                            new TelegramInlineButton("45 минут", new ReminderCallback("45m", callback.proposalId()).encode()),
+                            new TelegramInlineButton("90 минут", new ReminderCallback("90m", callback.proposalId()).encode()),
+                            new TelegramInlineButton("Ввести минуты", new ReminderCallback("text", callback.proposalId()).encode())));
+                    yield new BotReply(chatId, "Выберите интервал в новом сообщении.");
+                }
+                case "text" -> {
+                    redisTemplate.opsForValue().set(reminderKey(telegramUserId), callback.proposalId().toString(), Duration.ofMinutes(10));
+                    yield new BotReply(chatId, "Отправьте одним сообщением число минут: от 5 до 10080.");
+                }
+                case "edit" -> {
+                    telegramClient.send(chatId, "Когда напомнить о свидании?", null, reminderPresetButtons(callback.proposalId()));
+                    yield new BotReply(chatId, "Выберите новый интервал.");
+                }
+                case "off" -> new BotReply(chatId, reminderService.disable(callback.proposalId(), contact.getUserId()));
+                default -> throw new IllegalArgumentException("Unsupported reminder action");
+            };
+        } catch (IllegalArgumentException exception) {
+            return new BotReply(chatId, exception.getMessage());
+        }
+    }
+
+    private BotReply handleReminderMinutes(long telegramUserId, long chatId, UUID proposalId, String value) {
+        ContactProjection contact = contactRepository.findByTelegramUserId(telegramUserId).orElse(null);
+        if (contact == null || contact.getTelegramChatId() == null || contact.getTelegramChatId().longValue() != chatId) {
+            return new BotReply(chatId, "Сначала привяжите этот Telegram-аккаунт к For my L.");
+        }
+        try {
+            int minutes = Integer.parseInt(value);
+            BotReply reply = confirmReminder(chatId, proposalId, contact.getUserId(), minutes);
+            redisTemplate.delete(reminderKey(telegramUserId));
+            return reply;
+        } catch (NumberFormatException exception) {
+            return new BotReply(chatId, "Нужно целое число минут: от 5 до 10080.");
+        } catch (IllegalArgumentException exception) {
+            return new BotReply(chatId, exception.getMessage());
+        }
+    }
+
+    private BotReply confirmReminder(long chatId, UUID proposalId, UUID userId, int minutes) {
+        String text = reminderService.configure(proposalId, userId, minutes);
+        telegramClient.send(chatId, text, null, List.of(
+                new TelegramInlineButton("Изменить", new ReminderCallback("edit", proposalId).encode()),
+                new TelegramInlineButton("Отключить", new ReminderCallback("off", proposalId).encode())));
+        return new BotReply(chatId, text);
+    }
+
+    private UUID pendingReminder(long telegramUserId) {
+        String value = redisTemplate.opsForValue().get(reminderKey(telegramUserId));
+        try { return value == null ? null : UUID.fromString(value); }
+        catch (IllegalArgumentException exception) { redisTemplate.delete(reminderKey(telegramUserId)); return null; }
+    }
+
+    private static String reminderKey(long telegramUserId) { return "notification:reminder-input:" + telegramUserId; }
+
+    private static List<TelegramInlineButton> reminderPresetButtons(UUID proposalId) {
+        return List.of(
+                new TelegramInlineButton("За 3 часа", new ReminderCallback("3h", proposalId).encode()),
+                new TelegramInlineButton("За 1 час", new ReminderCallback("1h", proposalId).encode()),
+                new TelegramInlineButton("За 30 минут", new ReminderCallback("30m", proposalId).encode()),
+                new TelegramInlineButton("Своё время", new ReminderCallback("pick", proposalId).encode()));
     }
 
     private BotReply disableTelegram(long telegramUserId, long chatId) {

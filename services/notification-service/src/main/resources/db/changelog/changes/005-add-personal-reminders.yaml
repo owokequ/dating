@@ -1,0 +1,24 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-add-personal-reminders
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              ALTER TABLE scheduled_notifications DROP CONSTRAINT ck_reminder_type;
+              ALTER TABLE scheduled_notifications
+                ADD CONSTRAINT ck_reminder_type CHECK (reminder_type IN ('HOURS_24', 'HOURS_2', 'PERSONAL'));
+              UPDATE scheduled_notifications
+                SET status = 'CANCELLED', completed_at = CURRENT_TIMESTAMP
+                WHERE status = 'PENDING' AND reminder_type IN ('HOURS_24', 'HOURS_2');
+              CREATE TABLE date_reminder_contexts (
+                proposal_id UUID NOT NULL,
+                user_id UUID NOT NULL REFERENCES contact_projections(user_id),
+                couple_id UUID NOT NULL,
+                scheduled_at TIMESTAMPTZ NOT NULL,
+                body VARCHAR(2000) NOT NULL,
+                action_url VARCHAR(1000) NOT NULL,
+                media_id UUID,
+                PRIMARY KEY (proposal_id, user_id)
+              );

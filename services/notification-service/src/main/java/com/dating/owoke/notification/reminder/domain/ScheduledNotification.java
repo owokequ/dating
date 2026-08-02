@@ -35,11 +35,11 @@ public class ScheduledNotification {
     @Column(name = "reminder_type", nullable = false, updatable = false, length = 16)
     private ReminderType reminderType;
 
-    @Column(name = "scheduled_for", nullable = false, updatable = false)
+    @Column(name = "scheduled_for", nullable = false)
     private Instant scheduledFor;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false, updatable = false, columnDefinition = "jsonb")
+    @Column(nullable = false, columnDefinition = "jsonb")
     private ReminderPayload payload;
 
     @Enumerated(EnumType.STRING)
@@ -83,6 +83,20 @@ public class ScheduledNotification {
         completedAt = now;
     }
 
+    public void reschedule(Instant scheduledFor, ReminderPayload payload, Instant now) {
+        this.scheduledFor = Objects.requireNonNull(scheduledFor, "scheduledFor must not be null");
+        this.payload = Objects.requireNonNull(payload, "payload must not be null");
+        this.status = ScheduledNotificationStatus.PENDING;
+        this.completedAt = null;
+    }
+
+    public void cancel(Instant now) {
+        if (status == ScheduledNotificationStatus.PENDING) {
+            status = ScheduledNotificationStatus.CANCELLED;
+            completedAt = now;
+        }
+    }
+
     public UUID getSourceEventId() {
         return sourceEventId;
     }
@@ -101,5 +115,9 @@ public class ScheduledNotification {
 
     public ReminderPayload getPayload() {
         return payload;
+    }
+
+    public Instant getScheduledFor() {
+        return scheduledFor;
     }
 }

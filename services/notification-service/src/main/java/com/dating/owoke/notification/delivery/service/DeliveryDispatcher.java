@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.dating.owoke.notification.email.service.EmailClient;
 import com.dating.owoke.notification.telegram.dto.TelegramInlineButton;
 import com.dating.owoke.notification.telegram.domain.DateProposalCallback;
+import com.dating.owoke.notification.telegram.domain.ReminderCallback;
 import com.dating.owoke.notification.telegram.service.TelegramBotClient;
 import com.dating.owoke.notification.telegram.service.TelegramCardFormatter;
 import com.dating.owoke.notification.telegram.service.TelegramMediaService;
@@ -83,6 +84,13 @@ public class DeliveryDispatcher {
     }
 
     private static List<TelegramInlineButton> telegramButtons(DeliveryTask task) {
+        if ("DATE_REMINDER_SELECTION".equals(task.notificationType()) && task.referenceId() != null) {
+            return List.of(
+                    new TelegramInlineButton("За 3 часа", new ReminderCallback("3h", task.referenceId()).encode()),
+                    new TelegramInlineButton("За 1 час", new ReminderCallback("1h", task.referenceId()).encode()),
+                    new TelegramInlineButton("За 30 минут", new ReminderCallback("30m", task.referenceId()).encode()),
+                    new TelegramInlineButton("Своё время", new ReminderCallback("pick", task.referenceId()).encode()));
+        }
         if (!"DATE_PROPOSAL_CREATED".equals(task.notificationType())
                 || task.referenceId() == null
                 || task.contextId() == null) {

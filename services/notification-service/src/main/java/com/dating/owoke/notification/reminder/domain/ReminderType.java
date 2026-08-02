@@ -4,7 +4,8 @@ import java.time.Duration;
 
 public enum ReminderType {
     HOURS_24(Duration.ofHours(24)),
-    HOURS_2(Duration.ofHours(2));
+    HOURS_2(Duration.ofHours(2)),
+    PERSONAL(Duration.ZERO);
 
     private final Duration beforeDate;
 
