@@ -66,6 +66,8 @@ public class DateProposal {
     private Instant cancelledAt;
     @Column(name = "completed_at")
     private Instant completedAt;
+    @Column(name = "draft_expires_at")
+    private Instant draftExpiresAt;
     @Version
     @Column(nullable = false)
     private long version;
@@ -142,6 +144,63 @@ public class DateProposal {
         proposal.status = DateProposalStatus.PENDING_CONFIRMATION;
         proposal.createdAt = Objects.requireNonNull(now);
         return proposal;
+    }
+
+    public static DateProposal privateDraft(
+            UUID coupleId,
+            UUID proposerId,
+            UUID responderId,
+            Instant scheduledAt,
+            String placeName,
+            String placeAddress,
+            String description,
+            Instant expiresAt,
+            Instant now) {
+        DateProposal proposal = new DateProposal();
+        proposal.id = UUID.randomUUID();
+        proposal.coupleId = Objects.requireNonNull(coupleId);
+        proposal.proposerId = Objects.requireNonNull(proposerId);
+        proposal.responderId = Objects.requireNonNull(responderId);
+        if (proposerId.equals(responderId)) {
+            throw new IllegalArgumentException("proposer and responder must be different users");
+        }
+        proposal.scheduledAt = Objects.requireNonNull(scheduledAt);
+        proposal.timezone = DEFAULT_TIMEZONE;
+        proposal.selectionType = DateSelectionType.PRIVATE_PLACE;
+        proposal.placeNameSnapshot = requireText(placeName, 300, "placeName");
+        proposal.placeAddressSnapshot = normalizeAddress(placeAddress);
+        proposal.description = normalizeDescription(description);
+        proposal.status = DateProposalStatus.DRAFT;
+        proposal.draftExpiresAt = Objects.requireNonNull(expiresAt);
+        proposal.createdAt = Objects.requireNonNull(now);
+        return proposal;
+    }
+
+    public void send(UUID actorId, Instant now) {
+        if (!proposerId.equals(actorId)) {
+            throw new InvalidDateProposalActionException("Only proposer can send a draft");
+        }
+        if (status != DateProposalStatus.DRAFT) {
+            throw new InvalidDateProposalActionException("Only a draft can be sent");
+        }
+        if (!scheduledAt.isAfter(now) || !draftExpiresAt.isAfter(now)) {
+            throw new InvalidDateProposalActionException("Draft is expired");
+        }
+        status = DateProposalStatus.PENDING_CONFIRMATION;
+        draftExpiresAt = null;
+    }
+
+    public void updateDraftCover(UUID coverMediaId) {
+        if (status == DateProposalStatus.DRAFT) {
+            placeCoverMediaIdSnapshot = coverMediaId;
+        }
+    }
+
+    public void expireDraft(Instant now) {
+        if (status == DateProposalStatus.DRAFT) {
+            status = DateProposalStatus.CANCELLED;
+            cancelledAt = now;
+        }
     }
 
     public void accept(UUID actorId, Instant now) {
@@ -258,6 +317,10 @@ public class DateProposal {
         return version;
     }
 
+    public Instant getDraftExpiresAt() {
+        return draftExpiresAt;
+    }
+
     private static String requireText(String value, int maxLength, String field) {
         if (value == null || value.isBlank() || value.length() > maxLength) {
             throw new IllegalArgumentException(field + " is invalid");
@@ -272,6 +335,17 @@ public class DateProposal {
         String normalized = value.trim();
         if (normalized.length() > 1000) {
             throw new IllegalArgumentException("description is too long");
+        }
+        return normalized;
+    }
+
+    private static String normalizeAddress(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String normalized = value.trim();
+        if (normalized.length() > 500) {
+            throw new IllegalArgumentException("placeAddress is too long");
         }
         return normalized;
     }

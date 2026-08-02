@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-add-private-date-drafts
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              ALTER TABLE date_proposals ADD COLUMN draft_expires_at TIMESTAMPTZ;
+              ALTER TABLE date_proposals DROP CONSTRAINT ck_date_proposal_selection;
+              ALTER TABLE date_proposals ADD CONSTRAINT ck_date_proposal_selection
+                CHECK ((selection_type = 'PLACE' AND place_id IS NOT NULL AND event_id IS NULL AND event_occurrence_id IS NULL)
+                    OR (selection_type = 'EVENT' AND event_id IS NOT NULL AND event_occurrence_id IS NOT NULL)
+                    OR (selection_type = 'PRIVATE_PLACE' AND place_id IS NULL AND event_id IS NULL AND event_occurrence_id IS NULL));
+              ALTER TABLE date_proposals ADD CONSTRAINT ck_date_proposal_private_draft
+                CHECK ((status = 'DRAFT' AND selection_type = 'PRIVATE_PLACE' AND draft_expires_at IS NOT NULL)
+                    OR (status <> 'DRAFT' AND draft_expires_at IS NULL));
+              CREATE INDEX idx_date_proposals_expired_drafts
+                ON date_proposals(draft_expires_at) WHERE status = 'DRAFT';

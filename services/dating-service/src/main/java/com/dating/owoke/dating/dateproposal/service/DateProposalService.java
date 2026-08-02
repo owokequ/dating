@@ -2,11 +2,13 @@ package com.dating.owoke.dating.dateproposal.service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import com.dating.owoke.dating.couple.domain.Couple;
 import com.dating.owoke.dating.couple.domain.CoupleMember;
@@ -14,6 +16,7 @@ import com.dating.owoke.dating.couple.domain.CoupleStatus;
 import com.dating.owoke.dating.couple.repository.CoupleMemberRepository;
 import com.dating.owoke.dating.couple.repository.CoupleRepository;
 import com.dating.owoke.dating.dateproposal.domain.DateProposal;
+import com.dating.owoke.dating.dateproposal.domain.DateProposalStatus;
 import com.dating.owoke.dating.dateproposal.repository.DateProposalRepository;
 import com.dating.owoke.dating.eventprojection.domain.EventOccurrenceProjection;
 import com.dating.owoke.dating.eventprojection.repository.EventOccurrenceProjectionRepository;
@@ -30,6 +33,7 @@ import com.dating.owoke.dating.shared.messaging.service.OutboxService;
 public class DateProposalService {
 
     private static final String DATING_EVENTS_TOPIC = "dating.events.v1";
+    private static final Duration PRIVATE_DRAFT_TTL = Duration.ofHours(24);
 
     private final DateProposalRepository proposalRepository;
     private final CoupleMemberRepository memberRepository;
@@ -136,11 +140,66 @@ public class DateProposalService {
         return details(proposal);
     }
 
+    @Transactional
+    public DateProposalDetails createPrivateDraft(
+            UUID userId, Instant scheduledAt, String placeName, String placeAddress,
+            String description, String idempotencyKey) {
+        String requestMaterial = scheduledAt + "|" + normalize(placeName) + "|" + normalize(placeAddress)
+                + "|" + normalize(description);
+        UUID existingId = idempotencyService.find(
+                userId, "CREATE_PRIVATE_DATE_DRAFT", idempotencyKey, requestMaterial).orElse(null);
+        if (existingId != null) return visibleProposal(existingId, userId);
+        ActiveCouple activeCouple = requireActiveCouple(userId);
+        Instant now = clock.instant();
+        if (scheduledAt == null || !scheduledAt.isAfter(now)) {
+            throw new IllegalArgumentException("scheduledAt must be in the future");
+        }
+        UUID responderId = responder(activeCouple, userId);
+        DateProposal proposal = proposalRepository.save(DateProposal.privateDraft(
+                activeCouple.couple().getId(), userId, responderId, scheduledAt, placeName, placeAddress,
+                description, now.plus(PRIVATE_DRAFT_TTL), now));
+        idempotencyService.remember(userId, "CREATE_PRIVATE_DATE_DRAFT", idempotencyKey,
+                requestMaterial, proposal.getId());
+        return details(proposal);
+    }
+
+    @Transactional
+    public DateProposalDetails sendPrivateDraft(UUID proposalId, UUID userId, String idempotencyKey) {
+        UUID existingId = idempotencyService.find(
+                userId, "SEND_PRIVATE_DATE_DRAFT", idempotencyKey, proposalId.toString()).orElse(null);
+        if (existingId != null) return visibleProposal(existingId, userId);
+        DateProposal proposal = ownedDraft(proposalId, userId);
+        Instant now = clock.instant();
+        proposal.send(userId, now);
+        outboxService.enqueue(DATING_EVENTS_TOPIC, proposal.getCoupleId().toString(),
+                "DateProposalCreatedV3", 3, createdEvent(proposal));
+        idempotencyService.remember(userId, "SEND_PRIVATE_DATE_DRAFT", idempotencyKey,
+                proposalId.toString(), proposalId);
+        return details(proposal);
+    }
+
+    @Transactional
+    public void updatePrivateDraftCover(UUID proposalId, UUID coverMediaId) {
+        proposalRepository.findById(proposalId)
+                .filter(proposal -> proposal.getSelectionType() == com.dating.owoke.dating.dateproposal.domain.DateSelectionType.PRIVATE_PLACE)
+                .ifPresent(proposal -> proposal.updateDraftCover(coverMediaId));
+    }
+
+    @Scheduled(fixedDelayString = "${owoke.dating.private-draft-cleanup-delay:PT15M}")
+    @Transactional
+    public void expirePrivateDrafts() {
+        Instant now = clock.instant();
+        proposalRepository.findByStatusAndDraftExpiresAtBefore(DateProposalStatus.DRAFT, now)
+                .forEach(proposal -> proposal.expireDraft(now));
+    }
+
     @Transactional(readOnly = true)
     public List<DateProposalDetails> list(UUID userId) {
         ActiveCouple activeCouple = requireActiveCouple(userId);
         return proposalRepository.findByCoupleIdOrderByScheduledAtDesc(activeCouple.couple().getId())
-                .stream().map(DateProposalService::details).toList();
+                .stream().filter(proposal -> proposal.getStatus() != DateProposalStatus.DRAFT
+                        || proposal.getProposerId().equals(userId))
+                .map(DateProposalService::details).toList();
     }
 
     @Transactional(readOnly = true)
@@ -206,6 +265,8 @@ public class DateProposalService {
         ActiveCouple activeCouple = requireActiveCouple(userId);
         return proposalRepository.findById(proposalId)
                 .filter(proposal -> proposal.getCoupleId().equals(activeCouple.couple().getId()))
+                .filter(proposal -> proposal.getStatus() != DateProposalStatus.DRAFT
+                        || proposal.getProposerId().equals(userId))
                 .map(DateProposalService::details)
                 .orElseThrow(() -> new ResourceNotFoundException("Date proposal was not found"));
     }
@@ -221,6 +282,23 @@ public class DateProposalService {
             throw new IllegalStateException("Active couple must have exactly two members");
         }
         return new ActiveCouple(couple, members);
+    }
+
+    private DateProposal ownedDraft(UUID proposalId, UUID userId) {
+        ActiveCouple activeCouple = requireActiveCouple(userId);
+        return proposalRepository.findById(proposalId)
+                .filter(proposal -> proposal.getCoupleId().equals(activeCouple.couple().getId()))
+                .filter(proposal -> proposal.getProposerId().equals(userId))
+                .filter(proposal -> proposal.getStatus() == DateProposalStatus.DRAFT)
+                .orElseThrow(() -> new ResourceNotFoundException("Private date draft was not found"));
+    }
+
+    private static UUID responder(ActiveCouple activeCouple, UUID userId) {
+        return activeCouple.members().stream()
+                .map(CoupleMember::getUserId)
+                .filter(memberId -> !memberId.equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Active couple has no responder"));
     }
 
     private static DateProposalStatusChangedV3 statusEvent(DateProposal proposal, UUID userId, Instant now) {

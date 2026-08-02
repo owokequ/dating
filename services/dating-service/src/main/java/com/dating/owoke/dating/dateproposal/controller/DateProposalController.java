@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.dating.owoke.dating.dateproposal.dto.CreateDateProposalRequest;
 import com.dating.owoke.dating.dateproposal.dto.CreateEventDateProposalRequest;
+import com.dating.owoke.dating.dateproposal.dto.CreatePrivatePlaceDraftRequest;
 import com.dating.owoke.dating.dateproposal.dto.DateProposalResponse;
 import com.dating.owoke.dating.dateproposal.mapper.DateProposalMapper;
 import com.dating.owoke.dating.dateproposal.service.DateProposalService;
@@ -67,6 +68,26 @@ public class DateProposalController {
                 request.description(),
                 idempotencyKey));
         return ResponseEntity.created(URI.create("/api/v1/date-proposals/" + response.id())).body(response);
+    }
+
+    @PostMapping("/private-place/drafts")
+    public ResponseEntity<DateProposalResponse> createPrivateDraft(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody CreatePrivatePlaceDraftRequest request) {
+        DateProposalResponse response = mapper.toResponse(proposalService.createPrivateDraft(
+                userIdResolver.resolve(jwt), request.scheduledAt(), request.placeName(), request.placeAddress(),
+                request.description(), idempotencyKey));
+        return ResponseEntity.created(URI.create("/api/v1/date-proposals/" + response.id())).body(response);
+    }
+
+    @PostMapping("/{proposalId}/send")
+    public DateProposalResponse sendPrivateDraft(
+            @PathVariable UUID proposalId,
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
+        return mapper.toResponse(proposalService.sendPrivateDraft(
+                proposalId, userIdResolver.resolve(jwt), idempotencyKey));
     }
 
     @GetMapping
