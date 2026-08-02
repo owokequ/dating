@@ -34,7 +34,9 @@
 .catalog-count small { margin-top: .65rem; color: var(--muted); font: 700 .64rem/1 var(--font-body); letter-spacing: .09em; text-transform: uppercase; }
 .catalog-mark { width: 104px; height: 104px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50% 47% 46% 50%; color: var(--cherry); font: italic 600 3rem/1 var(--font-display); transform: rotate(5deg); }
 .catalog-mark svg { position: absolute; margin: -68px 0 0 68px; color: var(--petal); }
-.catalog-toolbar { margin-bottom: 1.5rem; padding: 1rem; gap: .8rem; }
+.catalog-toolbar { margin-bottom: 1.5rem; padding: 1rem; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .8rem; }
+.catalog-toolbar .category-chips { grid-column: 1 / 2; }
+.private-place-link { grid-column: 2; grid-row: 1 / 3; align-self: center; white-space: nowrap; }
 .search-field { position: relative; }
 .search-field > svg { position: absolute; z-index: 1; top: 50%; left: 1rem; color: var(--cherry); transform: translateY(-50%); }
 .search-field input { padding-left: 2.8rem; }
@@ -72,6 +74,12 @@
 .step-content { min-width: 0; align-self: center; }
 .step-content > label { width: 100%; }
 .date-submit { width: 100%; margin-top: 1.4rem; }
+.private-place-fields { display: grid; gap: .85rem; }
+.private-cover-input { display: grid; gap: .4rem; padding: .8rem; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); color: var(--cherry-deep); cursor: pointer; }
+.private-cover-input > span { display: flex; align-items: center; gap: .45rem; font-weight: 700; }
+.private-cover-input input { padding: 0; border: 0; background: transparent; }
+.private-cover-preview { width: 100%; max-height: 270px; object-fit: cover; border-radius: var(--radius-sm); }
+.private-cover-fallback { min-height: 140px; display: grid; place-content: center; gap: .55rem; border-radius: var(--radius-sm); background: linear-gradient(135deg, var(--rose-mist), var(--blush)); color: var(--cherry-deep); text-align: center; }
 .date-detail { max-width: 760px; }
 .love-letter { position: relative; overflow: hidden; }
 .love-letter::after { content: 'L'; position: absolute; right: -1rem; bottom: -3.8rem; pointer-events: none; color: rgba(242,120,154,.08); font: italic 700 13rem/1 var(--font-display); transform: rotate(-8deg); }

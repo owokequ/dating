@@ -54,7 +54,9 @@
   .catalog-count small { display: none; }
   .catalog-mark { width: 66px; height: 66px; flex: 0 0 auto; font-size: 2.2rem; }
   .catalog-mark svg { width: 18px; margin: -46px 0 0 44px; }
-  .catalog-toolbar { padding: .85rem; }
+  .catalog-toolbar { padding: .85rem; grid-template-columns: 1fr; }
+  .catalog-toolbar .search-field, .catalog-toolbar .category-chips, .private-place-link { grid-column: auto; grid-row: auto; }
+  .private-place-link { width: 100%; white-space: normal; }
   .event-filters { display: grid; grid-template-columns: 1fr; }
   .category-chips-scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .2rem; scrollbar-width: none; }
   .category-chips-scroll::-webkit-scrollbar { display: none; }

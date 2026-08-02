@@ -1,6 +1,6 @@
 import { apiRequest, idempotencyKey, jsonBody } from '../../../shared/api/http'
 
-export type DateStatus = 'PENDING_CONFIRMATION' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED' | 'COMPLETED'
+export type DateStatus = 'DRAFT' | 'PENDING_CONFIRMATION' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED' | 'COMPLETED'
 export type DateProposal = {
   id: string
   coupleId: string
@@ -8,7 +8,7 @@ export type DateProposal = {
   responderId: string
   scheduledAt: string
   timezone: 'Europe/Moscow'
-  selectionType: 'PLACE' | 'EVENT'
+  selectionType: 'PLACE' | 'EVENT' | 'PRIVATE_PLACE'
   placeId: string | null
   placeName: string
   placeAddress: string
@@ -40,6 +40,17 @@ export const createDateFromEvent = (input: { eventOccurrenceId: string; visitAt?
     headers: { 'Idempotency-Key': idempotencyKey() },
     body: jsonBody(input),
   })
+export const createPrivatePlaceDraft = (input: { scheduledAt: string; placeName: string; placeAddress?: string; description?: string }) =>
+  apiRequest<DateProposal>('/api/v1/date-proposals/private-place/drafts', {
+    method: 'POST', headers: { 'Idempotency-Key': idempotencyKey() }, body: jsonBody(input),
+  })
+export const uploadPrivatePlaceCover = (proposalId: string, file: File) => {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest<{ mediaId: string; status: string }>(`/api/v1/media/date-proposals/${proposalId}/assets`, { method: 'POST', body })
+}
+export const sendPrivatePlaceDraft = (proposalId: string) =>
+  apiRequest<DateProposal>(`/api/v1/date-proposals/${proposalId}/send`, { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey() } })
 export const decideDate = (id: string, action: 'accept' | 'decline' | 'cancel') =>
   apiRequest<DateProposal>(`/api/v1/date-proposals/${id}/${action}`, {
     method: 'POST',

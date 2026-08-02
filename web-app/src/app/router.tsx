@@ -9,6 +9,7 @@ import { DashboardPage } from '../features/dashboard/pages/DashboardPage'
 import { CouplePage } from '../features/couple/pages/CouplePage'
 import { InvitationPage } from '../features/invitation/pages/InvitationPage'
 import { NewDatePage } from '../features/dates/pages/NewDatePage'
+import { PrivatePlaceDatePage } from '../features/dates/pages/PrivatePlaceDatePage'
 import { DateDetailsPage } from '../features/dates/pages/DateDetailsPage'
 import { PlacesPage } from '../features/places/pages/PlacesPage'
 import { PlaceDetailsPage } from '../features/places/pages/PlaceDetailsPage'
@@ -44,6 +45,7 @@ const routeTree = rootRoute.addChildren([
   route('/invite/$token', InvitationPage),
   route('/couple', CouplePage),
   route('/dates/new', NewDatePage),
+  route('/dates/new/private-place', PrivatePlaceDatePage),
   route('/dates/$dateId', DateDetailsPage),
   route('/places', PlacesPage),
   route('/places/$placeId', PlaceDetailsPage),

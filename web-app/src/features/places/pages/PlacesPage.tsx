@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUpRight, Heart, MapPin, Search, WalletCards } from 'lucide-react'
+import { ArrowUpRight, Heart, MapPin, Plus, Search, WalletCards } from 'lucide-react'
 import { useState } from 'react'
 import { ErrorMessage, Loading, PageTitle } from '../../../shared/ui/Feedback'
 import { getPlaces } from '../api/placesApi'
@@ -31,6 +31,7 @@ export function PlacesPage() {
         <div className="category-chips" aria-label="Категории мест">
           {categories.map(([value, label]) => <button type="button" aria-pressed={category === value} className={category === value ? 'active' : ''} key={value} onClick={() => setCategory(value)}>{label}</button>)}
         </div>
+        <a className="button secondary private-place-link" href="/dates/new/private-place"><Plus size={17} /> Не нашли? Добавить своё место</a>
       </div>
       {places.isLoading ? <Loading /> : places.data?.items.length ? (
         <div className="card-grid">
