@@ -1,0 +1,74 @@
+@media (max-width: 920px) {
+  .desktop-nav .nav-primary { display: none; }
+  .hero { grid-template-columns: 1fr; gap: 3.5rem; }
+  .hero-card { width: min(440px, 90%); min-height: 320px; margin: 0 auto; }
+  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+  .date-list, .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-grid, .place-detail-content, .event-detail-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  body { background: radial-gradient(circle at 105% 0, rgba(242,120,154,.18), transparent 22rem), var(--blush); }
+  .site-header { position: relative; width: calc(100% - 32px); min-height: 70px; gap: .75rem; }
+  .brand-mark { width: 39px; height: 39px; }
+  .brand { gap: .55rem; }
+  .brand-copy strong { font-size: 1.32rem; white-space: nowrap; }
+  .brand-copy small { display: none; }
+  .desktop-nav { gap: .45rem; font-size: .78rem; }
+  .nav-cta { padding: .52rem .75rem; }
+  .desktop-nav .admin-link, .desktop-nav .nav-tools { display: none; }
+  main { width: min(100% - 32px, 1120px); padding: 2.8rem 0 7.5rem; }
+  footer { padding-bottom: 6.5rem; }
+  .mobile-nav {
+    position: fixed;
+    z-index: 50;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 12px;
+    height: 68px;
+    padding: 7px 70px 7px 8px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid rgba(255,255,255,.75);
+    border-radius: 24px;
+    background: rgba(63,38,49,.94);
+    box-shadow: 0 18px 50px rgba(63,38,49,.26);
+    backdrop-filter: blur(18px);
+  }
+  .mobile-nav > a:not(.mobile-nav-create) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .22rem; border-radius: 15px; color: #d8c5cd; font-size: .58rem; font-weight: 700; }
+  .mobile-nav > a.active { background: rgba(255,255,255,.1); color: white; }
+  .mobile-nav-create { position: absolute; right: 10px; top: 8px; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--petal); color: white; box-shadow: 0 8px 22px rgba(242,120,154,.35); }
+  h1 { font-size: clamp(2.75rem, 15vw, 4.3rem); }
+  .page-title { margin-bottom: 2rem; }
+  .page-title h1 { font-size: clamp(2.7rem, 14vw, 4.1rem); }
+  .page-title p { font-size: .94rem; }
+  .hero { min-height: auto; }
+  .hero-card { width: calc(100% - 20px); min-height: 285px; padding: 1.6rem; box-shadow: 14px 16px 0 var(--rose-mist); }
+  .hero-card strong { font-size: 2rem; }
+  .panel { padding: 1.35rem; border-radius: 25px 25px 25px 9px; }
+  .quick-actions, .date-list, .card-grid, .member-grid, .settings-grid, .filters, .admin-sync-panel, .coordinate-grid, .admin-place-editor, .admin-event-venue { grid-template-columns: 1fr; }
+  .quick-actions { gap: .65rem; }
+  .quick-actions a { min-height: 88px; }
+  .callout, .notification { align-items: flex-start; flex-direction: column; }
+  .callout .button { width: 100%; }
+  .filters { gap: .7rem; }
+  .card-grid { gap: 1rem; }
+  .card-actions { align-items: flex-start; flex-direction: column; }
+  .card-button-group, .card-button-group .button { width: 100%; }
+  .place-detail-hero, .place-detail-hero > img { min-height: 420px; height: 420px; }
+  .place-detail-hero { border-radius: 32px 32px 32px 10px; }
+  .place-detail-overlay { bottom: 1.7rem; left: 1.4rem; }
+  .place-detail-overlay h1 { font-size: 3.3rem; }
+  .place-gallery { grid-template-columns: 1fr; }
+  .place-gallery img, .place-gallery img:first-child:nth-last-child(odd) { grid-column: auto; }
+  .date-detail-cover { width: calc(100% + 2.7rem); margin: -1.35rem -1.35rem 1.4rem; }
+  dl > div { grid-template-columns: 1fr; gap: .25rem; }
+  .auth-links { flex-direction: column; }
+  .admin-sync-panel > .message, .admin-sync-panel > .sync-result, .admin-provider-note { grid-column: auto; }
+  .media-admin-grid, .place-image-preview-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
