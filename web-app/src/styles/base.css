@@ -4,6 +4,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: clip;
   background:
     radial-gradient(circle at 93% 2%, rgba(242, 120, 154, .18), transparent 30rem),
     radial-gradient(circle at -8% 38%, rgba(255, 224, 233, .8), transparent 26rem),

@@ -13,7 +13,11 @@
 .auth-card > .button { width: 100%; margin-top: 1rem; }
 .auth-links { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.2rem; color: var(--cherry-deep); font-size: .84rem; }
 .quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: .85rem; margin-bottom: 3rem; }
-.quick-actions a { min-height: 116px; padding: 1.15rem; display: flex; align-items: flex-end; border: 1px solid var(--line); border-radius: 22px 22px 22px 7px; background: rgba(255,250,251,.8); font: 600 1.25rem/1.08 var(--font-display); transition: transform 180ms var(--ease), border-color 180ms ease, box-shadow 180ms ease; }
+.dashboard-intro { position: relative; display: flex; justify-content: space-between; align-items: flex-start; }
+.dashboard-intro .page-title { flex: 1; }
+.love-seal { width: 92px; height: 92px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50% 46% 48% 43%; color: var(--cherry); font: italic 600 3.7rem/1 var(--font-display); transform: rotate(7deg); }
+.quick-actions a { min-height: 116px; padding: 1.15rem; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; border: 1px solid var(--line); border-radius: 22px 22px 22px 7px; background: rgba(255,250,251,.8); font: 600 1.25rem/1.08 var(--font-display); transition: transform 180ms var(--ease), border-color 180ms ease, box-shadow 180ms ease; }
+.quick-actions a svg { color: var(--cherry); }
 .quick-actions a:hover { border-color: var(--petal); box-shadow: var(--shadow-sm); transform: translateY(-3px) rotate(-.5deg); }
 .callout { display: flex; justify-content: space-between; align-items: center; gap: 2rem; }
 .date-list, .card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
@@ -22,6 +26,8 @@
 .date-card:hover { box-shadow: var(--shadow); transform: translateY(-4px); }
 .date-card h3 { margin: .3rem 0; font-size: 1.7rem; }
 .date-card small { margin-top: auto; }
+.ribbon-list { position: relative; }
+.ribbon-list::before { content: ''; position: absolute; z-index: -1; top: -2rem; bottom: -2rem; left: 12px; width: 2px; background: linear-gradient(var(--petal), transparent); }
 .place-card { display: flex; flex-direction: column; gap: .7rem; overflow: hidden; border: 1px solid var(--line); border-radius: 28px 28px 28px 8px; background: var(--milk); transition: transform 220ms var(--ease), box-shadow 220ms var(--ease), border-color 220ms ease; }
 .place-card > :not(.place-cover) { margin-left: 1.35rem; margin-right: 1.35rem; }
 .place-card > :last-child { margin-bottom: 1.35rem; }
@@ -36,7 +42,21 @@
 .card-actions { display: flex; justify-content: space-between; align-items: center; gap: .7rem; margin-top: .45rem; }
 .card-button-group { display: flex; gap: .45rem; }
 .form-page { max-width: 760px; margin: auto; }
+.date-proposal-form { gap: 0; }
+.form-steps { margin: -1rem 0 1.8rem; padding-bottom: 1rem; display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); color: var(--muted); font-size: .64rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.form-steps span { text-align: center; }
+.form-steps .active { color: var(--cherry); }
+.date-form-step { position: relative; display: grid; grid-template-columns: 54px 1fr; gap: 1rem; padding: 1.5rem 0; border-bottom: 1px solid var(--line); }
+.date-form-step::before { content: ''; position: absolute; top: 0; bottom: 0; left: 25px; width: 1px; background: var(--rose-mist); }
+.step-number { position: relative; z-index: 1; width: 50px; height: 50px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--milk); color: var(--cherry); font: 600 1rem/1 var(--font-display); }
+.step-content { min-width: 0; align-self: center; }
+.step-content > label { width: 100%; }
+.date-submit { width: 100%; margin-top: 1.4rem; }
 .date-detail { max-width: 760px; }
+.love-letter { position: relative; overflow: hidden; }
+.love-letter::after { content: 'L'; position: absolute; right: -1rem; bottom: -3.8rem; pointer-events: none; color: rgba(242,120,154,.08); font: italic 700 13rem/1 var(--font-display); transform: rotate(-8deg); }
+.love-letter > * { position: relative; z-index: 1; }
+.love-letter .date-detail-cover { z-index: 0; }
 .date-detail-cover { width: calc(100% + 4.7rem); max-height: 430px; margin: -2.35rem -2.35rem 1.8rem; display: block; object-fit: cover; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .date-detail address { margin: 1.2rem 0; font-size: 1.02rem; }
 blockquote { margin: 1.5rem 0; padding: .5rem 0 .5rem 1.2rem; border-left: 3px solid var(--petal); font: italic 500 1.4rem/1.4 var(--font-display); }
@@ -45,6 +65,7 @@ dt { color: var(--muted); } dd { margin: 0; }
 .member-grid, .settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
 .member-card { padding: 1.2rem; display: grid; gap: .5rem; border: 1px solid var(--line); border-radius: 20px 20px 20px 7px; background: var(--blush); }
 .member-card strong { overflow-wrap: anywhere; }
+.empty-state-icon { margin-bottom: .8rem; color: var(--cherry); }
 .invite-box { margin: 1rem 0; padding: 1rem; display: grid; gap: .7rem; border-radius: var(--radius-sm); background: var(--rose-mist); }
 .invite-box code { overflow-wrap: anywhere; }
 .notification-list { display: grid; gap: .8rem; }

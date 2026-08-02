@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import type { z } from 'zod'
+import { Send } from 'lucide-react'
 import { ErrorMessage, PageTitle } from '../../../shared/ui/Feedback'
 import { login, safeContinuePath } from '../api/authApi'
 import { loginSchema } from '../schemas'
@@ -23,7 +24,7 @@ export function LoginPage() {
 
   return (
     <section className="auth-card panel">
-      <PageTitle eyebrow="С возвращением" title="Войти в Owoke">Продолжите планировать время вдвоём.</PageTitle>
+      <PageTitle eyebrow="С возвращением" title="Войти в For my L">Ваши планы и маленькие истории уже ждут.</PageTitle>
       <form onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
         <label>Email<input type="email" autoComplete="email" {...form.register('email')} /></label>
         <small>{form.formState.errors.email?.message}</small>
@@ -34,7 +35,7 @@ export function LoginPage() {
       </form>
       <button className="button secondary telegram" onClick={() => {
         window.location.href = `/api/v1/auth/telegram/authorize?continue=${encodeURIComponent(continuePath)}`
-      }}>Войти через Telegram</button>
+      }}><Send size={17} />Войти через Telegram</button>
       <div className="auth-links">
         <a href={`/register?continue=${encodeURIComponent(continuePath)}`}>Создать аккаунт</a>
         <a href="/reset-password">Забыли пароль?</a>

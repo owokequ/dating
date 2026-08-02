@@ -14,7 +14,7 @@ export function NotificationsPage() {
 
   return (
     <section>
-      <PageTitle eyebrow="События" title="Уведомления">In-app запись создаётся всегда, независимо от Telegram и email.</PageTitle>
+      <PageTitle eyebrow="Ничего не потеряется" title="Ваши уведомления">Здесь собраны приглашения, ответы и напоминания о ваших планах.</PageTitle>
       <div className="notification-list">
         {notifications.data?.map((item) => (
           <article key={item.id} className={`panel notification ${item.readAt ? '' : 'unread'}`}>
@@ -25,7 +25,7 @@ export function NotificationsPage() {
             </div>
           </article>
         ))}
-        {!notifications.data?.length && <div className="panel empty-state">Здесь появятся ответы партнёра и напоминания.</div>}
+        {!notifications.data?.length && <div className="panel empty-state"><h2>Пока тихо</h2><p>Здесь появятся ответы вашего человека и напоминания о встречах.</p></div>}
       </div>
       <ErrorMessage error={notifications.error ?? read.error} />
     </section>

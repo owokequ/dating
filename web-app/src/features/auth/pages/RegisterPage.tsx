@@ -18,7 +18,7 @@ export function RegisterPage() {
 
   return (
     <section className="auth-card panel">
-      <PageTitle eyebrow="Новая история" title="Создать аккаунт">Ссылка-приглашение сохранится после регистрации.</PageTitle>
+      <PageTitle eyebrow="Новая история" title="Начать вместе">Создайте своё пространство. Ссылка-приглашение сохранится после регистрации.</PageTitle>
       <form onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
         <label>Имя<input autoComplete="name" {...form.register('displayName')} /></label>
         <small>{form.formState.errors.displayName?.message}</small>

@@ -25,11 +25,11 @@ export function InvitationPage() {
 
   return (
     <section className="auth-card panel">
-      <PageTitle eyebrow="Приглашение" title="Стать парой в Owoke">После принятия вы сможете предлагать и подтверждать свидания.</PageTitle>
+      <PageTitle eyebrow="Только для вас двоих" title="Вас приглашают в For my L">Примите приглашение, чтобы вместе выбирать места и строить планы.</PageTitle>
       {preview.data ? (
         <>
           <p>Ссылка действительна до <strong>{formatDateTime(preview.data.expiresAt)}</strong>.</p>
-          <button onClick={() => accept.mutate()} disabled={accept.isPending}>Принять приглашение</button>
+          <button onClick={() => accept.mutate()} disabled={accept.isPending}>{accept.isPending ? 'Принимаем…' : 'Да, хочу быть вместе'}</button>
           <p className="muted">Если вы ещё не вошли, мы сохраним эту страницу и вернём вас после входа.</p>
         </>
       ) : <ErrorMessage error={preview.error} />}

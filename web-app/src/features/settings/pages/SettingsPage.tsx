@@ -19,7 +19,7 @@ export function SettingsPage() {
 
   return (
     <section>
-      <PageTitle eyebrow="Профиль" title="Настройки">Telegram нужен для уведомлений, но сам продукт остаётся обычным сайтом.</PageTitle>
+      <PageTitle eyebrow="Ваш уголок" title="Настройки">Имя, уведомления и связь с Telegram — всё, что помогает оставаться на связи.</PageTitle>
       <div className="settings-grid">
         <form className="panel" onSubmit={(event) => {
           event.preventDefault()
@@ -33,7 +33,7 @@ export function SettingsPage() {
           <button disabled={profile.isPending}>Сохранить</button>
         </form>
         <div className="panel">
-          <h2>Telegram-бот</h2>
+          <h2>Уведомления в Telegram</h2>
           <p>{session.data?.telegramLinked ? 'Telegram уже привязан. Бот сможет присылать предложения и напоминания.' : 'Откроем бота с одноразовым токеном на 10 минут.'}</p>
           <button className="telegram" disabled={telegram.isPending || session.data?.telegramLinked} onClick={() => telegram.mutate()}>
             {session.data?.telegramLinked ? 'Telegram подключён' : 'Подключить Telegram'}

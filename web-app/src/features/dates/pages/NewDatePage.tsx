@@ -35,20 +35,21 @@ export function NewDatePage() {
 
   return (
     <section className="form-page">
-      <PageTitle eyebrow="Новое свидание" title={eventMode ? 'Предложить событие' : 'Предложить время и место'}>Партнёр получит уведомление и должен подтвердить предложение.</PageTitle>
-      <form className="panel" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
-        {eventMode && selectedEvent.data ? <div className="selected-event-summary">
+      <PageTitle eyebrow="Новая страница" title={eventMode ? 'Позвать на событие' : 'Оставить приглашение'}>Соберите красивый план — ваш человек получит его и сможет ответить.</PageTitle>
+      <form className="panel date-proposal-form" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
+        <div className="form-steps" aria-label="Шаги предложения"><span className="active">1 · идея</span><span>2 · время</span><span>3 · записка</span></div>
+        <section className="date-form-step"><span className="step-number">01</span><div className="step-content">{eventMode && selectedEvent.data ? <div className="selected-event-summary">
           <span className="eyebrow">KudaGo</span>
           <h2>{selectedEvent.data.title}</h2>
           <address>{selectedEvent.data.venueName}{selectedEvent.data.venueAddress ? ` · ${selectedEvent.data.venueAddress}` : ''}</address>
           {!occurrence?.continuous && occurrence && <strong>{new Intl.DateTimeFormat('ru-RU', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Moscow' }).format(new Date(occurrence.startsAt))}</strong>}
-        </div> : <label>Место
+        </div> : <label>Куда пойдём
           <select value={placeId} onChange={(event) => setPlaceId(event.target.value)} required>
             <option value="">Выберите место</option>
             {places.data?.items.map((place) => <option key={place.id} value={place.id}>{place.name} — {place.address}</option>)}
           </select>
-        </label>}
-        {(!eventMode || occurrence?.continuous) && <label>{eventMode ? 'Время посещения внутри периода' : 'Дата и время'} (Москва)<input
+        </label>}</div></section>
+        <section className="date-form-step"><span className="step-number">02</span><div className="step-content">{(!eventMode || occurrence?.continuous) && <label>{eventMode ? 'Когда придём' : 'Когда встречаемся'} (Москва)<input
           type="datetime-local"
           value={scheduledAt}
           min={occurrence?.continuous ? toMoscowLocalInput(occurrence.startsAt) : undefined}
@@ -57,10 +58,11 @@ export function NewDatePage() {
           required
         /></label>}
         {eventMode && selectedEvent.data && !occurrence && <p className="message warning">Этот сеанс больше недоступен. Вернитесь в афишу и выберите другой.</p>}
-        <label>Описание<textarea maxLength={1000} rows={5} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Например: хочу спокойно поужинать и прогуляться" /></label>
-        <small>{description.length}/1000</small>
+        </div></section>
+        <section className="date-form-step"><span className="step-number">03</span><div className="step-content"><label>Личная записка<textarea maxLength={1000} rows={5} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Например: хочу провести этот вечер только с тобой" /></label>
+        <small>{description.length}/1000</small></div></section>
         <ErrorMessage error={create.error ?? selectedEvent.error ?? places.error} />
-        <button disabled={create.isPending || (eventMode && !occurrence)}>Отправить предложение</button>
+        <button className="date-submit" disabled={create.isPending || (eventMode && !occurrence)}>{create.isPending ? 'Отправляем…' : 'Отправить приглашение ♡'}</button>
       </form>
     </section>
   )

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
+import { CalendarX, Check, X } from 'lucide-react'
 import { formatDateTime } from '../../../shared/lib/date'
 import { ErrorMessage, Loading, PageTitle } from '../../../shared/ui/Feedback'
 import { useSession } from '../../auth/api/authApi'
@@ -27,8 +28,8 @@ export function DateDetailsPage() {
 
   return (
     <section>
-      <PageTitle eyebrow="Свидание" title={proposal.data.eventTitle || proposal.data.placeName}>{formatDateTime(proposal.data.scheduledAt)}</PageTitle>
-      <article className="panel date-detail">
+      <PageTitle eyebrow="Ваша открытка" title={proposal.data.eventTitle || proposal.data.placeName}>{formatDateTime(proposal.data.scheduledAt)}</PageTitle>
+      <article className="panel date-detail love-letter">
         <img className="date-detail-cover"
           src={proposal.data.placeCoverMediaId
             ? `/api/v1/media/assets/${proposal.data.placeCoverMediaId}/content?variant=DETAIL`
@@ -44,8 +45,8 @@ export function DateDetailsPage() {
           <div><dt>Создано</dt><dd>{formatDateTime(proposal.data.createdAt)}</dd></div>
         </dl>
         <div className="button-row">
-          {canRespond && <><button onClick={() => decide.mutate('accept')}>Принять</button><button className="secondary" onClick={() => decide.mutate('decline')}>Отклонить</button></>}
-          {canCancel && <button className="danger" onClick={() => decide.mutate('cancel')}>Отменить</button>}
+          {canRespond && <><button onClick={() => decide.mutate('accept')}><Check size={17} />Да, идём</button><button className="secondary" onClick={() => decide.mutate('decline')}><X size={17} />Не получится</button></>}
+          {canCancel && <button className="danger" onClick={() => decide.mutate('cancel')}><CalendarX size={17} />Отменить план</button>}
         </div>
         <ErrorMessage error={decide.error} />
       </article>

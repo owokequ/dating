@@ -49,6 +49,8 @@
   .quick-actions, .date-list, .card-grid, .member-grid, .settings-grid, .filters, .admin-sync-panel, .coordinate-grid, .admin-place-editor, .admin-event-venue { grid-template-columns: 1fr; }
   .quick-actions { gap: .65rem; }
   .quick-actions a { min-height: 88px; }
+  .love-seal { width: 62px; height: 62px; flex: 0 0 auto; font-size: 2.6rem; }
+  .dashboard-intro { gap: .75rem; }
   .callout, .notification { align-items: flex-start; flex-direction: column; }
   .callout .button { width: 100%; }
   .filters { gap: .7rem; }
@@ -62,6 +64,10 @@
   .place-gallery { grid-template-columns: 1fr; }
   .place-gallery img, .place-gallery img:first-child:nth-last-child(odd) { grid-column: auto; }
   .date-detail-cover { width: calc(100% + 2.7rem); margin: -1.35rem -1.35rem 1.4rem; }
+  .form-steps { margin-top: -.4rem; font-size: .56rem; }
+  .date-form-step { grid-template-columns: 42px 1fr; gap: .75rem; }
+  .date-form-step::before { left: 20px; }
+  .step-number { width: 40px; height: 40px; }
   dl > div { grid-template-columns: 1fr; gap: .25rem; }
   .auth-links { flex-direction: column; }
   .admin-sync-panel > .message, .admin-sync-panel > .sync-result, .admin-provider-note { grid-column: auto; }
