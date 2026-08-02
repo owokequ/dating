@@ -131,7 +131,7 @@ public class KudaGoEventClient {
         try {
             java.net.URI uri = java.net.URI.create(value.replaceFirst("^http://", "https://"));
             if (!"https".equalsIgnoreCase(uri.getScheme()) || !isKudaGoHost(uri.getHost())) return null;
-            if (mediaOnly && (uri.getPath() == null || !uri.getPath().startsWith("/media/"))) return null;
+            if (mediaOnly && !isKudaGoMediaUri(uri)) return null;
             return uri.toString();
         } catch (IllegalArgumentException exception) {
             return null;
@@ -144,6 +144,15 @@ public class KudaGoEventClient {
         }
         String normalized = host.toLowerCase(java.util.Locale.ROOT);
         return normalized.equals("kudago.com") || normalized.endsWith(".kudago.com");
+    }
+
+    private static boolean isKudaGoMediaUri(java.net.URI uri) {
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(java.util.Locale.ROOT);
+        String path = uri.getPath() == null ? "" : uri.getPath();
+        if (host.equals("media.kudago.com")) {
+            return path.startsWith("/images/") || path.startsWith("/thumbs/");
+        }
+        return path.startsWith("/media/");
     }
     private static String normalizeAnyHttpUrl(String value) {
         if (value == null || value.isBlank()) return null;

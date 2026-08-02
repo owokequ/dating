@@ -1,6 +1,9 @@
 package com.dating.owoke.media.collection.messaging.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,9 +40,14 @@ class EventEventProcessorTest {
         EventChangedV1 payload = new EventChangedV1(
                 eventId, "KUDAGO", "42", "Concert", null, List.of("concert"), null,
                 false, null, "https://kudago.com/events/concert/", null, null, "ACTIVE", List.of(),
-                List.of(new EventChangedV1.Image(
-                        "image-1", "https://kudago.com/media/images/concert.jpg", null,
-                        "KudaGo", "https://kudago.com/events/concert/")));
+                List.of(
+                        new EventChangedV1.Image(
+                                "image-1", "https://media.kudago.com/images/event/concert.jpg",
+                                "https://media.kudago.com/thumbs/xl/images/event/concert.jpg",
+                                "Пресс-служба", "https://press.example/photo"),
+                        new EventChangedV1.Image(
+                                "image-2", "https://media.kudago.com/images/event/concert-2.jpg", null,
+                                "KudaGo", null)));
         ObjectMapper objectMapper = mock(ObjectMapper.class);
         InboxEventRepository inboxRepository = mock(InboxEventRepository.class);
         EventProjectionService projectionService = mock(EventProjectionService.class);
@@ -54,9 +62,16 @@ class EventEventProcessorTest {
 
         verify(projectionService).upsert(eventId, EventProjectionStatus.ACTIVE, occurredAt);
         verify(remoteMediaService).synchronize(
-                org.mockito.ArgumentMatchers.eq(MediaOwnerType.EVENT),
-                org.mockito.ArgumentMatchers.eq(eventId),
-                any());
+                eq(MediaOwnerType.EVENT),
+                eq(eventId),
+                argThat(images -> {
+                    assertThat(images).hasSize(2);
+                    assertThat(images.get(0).remoteUrl())
+                            .isEqualTo("https://media.kudago.com/images/event/concert.jpg");
+                    assertThat(images.get(0).sourceLink()).isEqualTo("https://press.example/photo");
+                    assertThat(images.get(1).sourceLink()).isNull();
+                    return true;
+                }));
         verify(inboxRepository).saveAndFlush(any());
     }
 }
