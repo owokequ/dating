@@ -84,7 +84,7 @@ class TelegramBotClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(request -> {
                     String body = ((MockClientHttpRequest) request).getBodyAsString();
-                    assertThat(body).contains("\"chat_id\":123", "\"message_id\":42", "Открыть Owoke")
+                    assertThat(body).contains("\"chat_id\":123", "\"message_id\":42", "Открыть For my L")
                             .doesNotContain("callback_data");
                 })
                 .andRespond(withSuccess("{\"ok\":true,\"result\":{\"message_id\":42}}", MediaType.APPLICATION_JSON));

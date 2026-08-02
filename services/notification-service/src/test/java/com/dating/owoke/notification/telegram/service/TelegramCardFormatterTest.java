@@ -11,11 +11,12 @@ class TelegramCardFormatterTest {
     void formatsRomanticCardAndEscapesUserText() {
         String caption = formatter.format(
                 "Новое предложение 💌",
-                "03.08.2026 19:00 — Кафе, Казань\nСтолик <у окна> & цветы");
+                "📅 Дата: 03.08.2026\n⏰ Время: 19:00\n📍 Кафе, Казань\n\n💭 Столик <у окна> & цветы");
 
         assertThat(caption)
-                .contains("<b>Новое предложение 💌</b>", "🗓 03.08.2026 19:00", "📍 Кафе, Казань")
+                .contains("<b>Новое предложение 💌</b>", "📅 Дата: 03.08.2026", "⏰ Время: 19:00", "📍 Кафе, Казань")
                 .contains("💭 Столик &lt;у окна&gt; &amp; цветы")
+                .contains("С любовью, For my L ✨")
                 .hasSizeLessThanOrEqualTo(1024);
     }
 

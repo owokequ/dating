@@ -8,21 +8,9 @@ public class TelegramCardFormatter {
 
     public String format(String title, String body) {
         String escapedTitle = escape(title);
-        String[] bodyParts = body.split("\\R", 2);
-        String primary = escape(bodyParts[0]);
-        int separator = primary.indexOf(" — ");
-        String escapedBody;
-        if (separator >= 0) {
-            escapedBody = "🗓 " + primary.substring(0, separator)
-                    + "\n📍 " + primary.substring(separator + 3);
-        } else {
-            escapedBody = "✨ " + primary;
-        }
-        if (bodyParts.length > 1 && !bodyParts[1].isBlank()) {
-            escapedBody += "\n\n💭 " + escape(bodyParts[1]);
-        }
+        String escapedBody = escape(body).strip();
         String prefix = "<b>" + escapedTitle + "</b>\n\n";
-        String suffix = "\n\n<i>С любовью, Owoke ✨</i>";
+        String suffix = "\n\n<i>С любовью, For my L ✨</i>";
         int available = CAPTION_LIMIT - prefix.length() - suffix.length();
         if (escapedBody.length() > available) {
             escapedBody = safeHtmlCut(escapedBody, available - 1) + "…";

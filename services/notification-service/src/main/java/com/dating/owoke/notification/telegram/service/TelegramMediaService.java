@@ -46,7 +46,7 @@ public class TelegramMediaService {
     public PreparedTelegramPhoto preparePlaceholder() {
         PreparedTelegramPhoto cached = cached(PLACEHOLDER_MEDIA_ID);
         if (cached != null) return cached;
-        ClassPathResource resource = new ClassPathResource("telegram/owoke-place-placeholder.png");
+        ClassPathResource resource = new ClassPathResource("telegram/for-my-l-place-placeholder.png");
         try (java.io.InputStream input = resource.getInputStream()) {
             byte[] content = input.readAllBytes();
             return prepare(PLACEHOLDER_MEDIA_ID, new MediaBinary(content, "image/png", sha256(content)));

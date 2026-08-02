@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -26,6 +27,9 @@ import tools.jackson.databind.JsonNode;
 @Component
 public class KudaGoClient {
 
+    private static final Pattern COORDINATE_ADDRESS = Pattern.compile(
+            "^[+-]?\\d{1,3}(?:[.]\\d+)?\\s*[,;]\\s*[+-]?\\d{1,3}(?:[.]\\d+)?$");
+    private static final String KAZAN_ADDRESS = "Казань";
     private static final String FIELDS = String.join(",",
             "id", "title", "address", "coords", "categories", "description", "images", "site_url",
             "is_closed", "favorites_count");
@@ -83,7 +87,7 @@ public class KudaGoClient {
         }
         long id = item.path("id").asLong(-1);
         String name = item.path("title").asString();
-        String address = item.path("address").asString();
+        String address = normalizeAddress(item.path("address").asString());
         JsonNode coords = item.path("coords");
         String sourcePageUrl = normalizeHttps(item.path("site_url").asString());
         if (id < 0 || name.isBlank() || address.isBlank() || sourcePageUrl == null
@@ -151,6 +155,14 @@ public class KudaGoClient {
             normalized = "https://" + normalized.substring("http://".length());
         }
         return normalized.startsWith("https://") ? normalized : null;
+    }
+
+    private static String normalizeAddress(String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.strip();
+        return COORDINATE_ADDRESS.matcher(normalized).matches() ? KAZAN_ADDRESS : normalized;
     }
 
     private static boolean isKudaGoUrl(String value) {

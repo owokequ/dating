@@ -58,7 +58,7 @@ public class BotCommandService {
         if (command.startsWith("/start link_")) {
             String linkToken = command.substring("/start link_".length()).trim();
             if (linkToken.isEmpty()) {
-                reply = new BotReply(chatId, "Ссылка привязки повреждена. Создайте новую на сайте Owoke.");
+                reply = new BotReply(chatId, "Ссылка привязки повреждена. Создайте новую на сайте For my L.");
             } else {
                 outboxService.enqueue(
                         IDENTITY_COMMANDS_TOPIC,
@@ -70,9 +70,9 @@ public class BotCommandService {
         } else {
             reply = switch (firstToken(command)) {
                 case "/start", "/help" -> new BotReply(chatId,
-                        "Owoke присылает уведомления о свиданиях. Привяжите бота в настройках обычного сайта.");
+                        "For my L присылает уведомления о свиданиях. Привяжите бота в настройках сайта.");
                 case "/settings" -> new BotReply(chatId,
-                        "Настройки каналов доступны на сайте Owoke. /stop отключит Telegram-уведомления.");
+                        "Настройки каналов доступны на сайте For my L. /stop отключит Telegram-уведомления.");
                 case "/stop" -> disableTelegram(telegramUserId, chatId);
                 default -> new BotReply(chatId, "Неизвестная команда. Используйте /help.");
             };
@@ -98,7 +98,7 @@ public class BotCommandService {
         BotReply reply;
         if (contact == null || contact.getTelegramChatId() == null
                 || contact.getTelegramChatId().longValue() != chatId) {
-            reply = new BotReply(chatId, "Сначала привяжите этот Telegram-аккаунт к Owoke.");
+            reply = new BotReply(chatId, "Сначала привяжите этот Telegram-аккаунт к For my L.");
         } else {
             java.util.UUID requestId = outboxService.enqueue(
                     DATING_COMMANDS_TOPIC,
@@ -119,7 +119,7 @@ public class BotCommandService {
     private BotReply disableTelegram(long telegramUserId, long chatId) {
         ContactProjection contact = contactRepository.findByTelegramUserId(telegramUserId).orElse(null);
         if (contact == null) {
-            return new BotReply(chatId, "Telegram ещё не привязан к Owoke.");
+            return new BotReply(chatId, "Telegram ещё не привязан к For my L.");
         }
         NotificationPreference preference = preferenceRepository.findById(contact.getUserId())
                 .orElseThrow(() -> new IllegalStateException("Notification preferences are missing"));

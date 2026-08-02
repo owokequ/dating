@@ -2,6 +2,7 @@ package com.dating.owoke.notification.shared.messaging.service;
 
 import java.time.Clock;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
@@ -37,7 +38,8 @@ import tools.jackson.databind.ObjectMapper;
 public class IncomingEventProcessor {
 
     private static final ZoneId MOSCOW = ZoneId.of("Europe/Moscow");
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
     private final InboxEventRepository inboxRepository;
     private final ContactProjectionRepository contactRepository;
@@ -144,7 +146,7 @@ public class IncomingEventProcessor {
                     event.userId(),
                     "TELEGRAM_LINKED",
                     "Telegram подключён",
-                    "Теперь бот Owoke сможет присылать уведомления о свиданиях.",
+                    "Теперь бот For my L сможет присылать уведомления о свиданиях.",
                     properties.webAppUrl() + "/settings");
         }
     }
@@ -154,14 +156,14 @@ public class IncomingEventProcessor {
             contactService.register(event.userId(), event.email(), event.email());
         }
         String title = "PASSWORD_RESET".equals(event.template())
-                ? "Восстановление пароля Owoke"
-                : "Подтверждение email Owoke";
+                ? "Восстановление пароля For my L"
+                : "Подтверждение email For my L";
         notificationService.create(
                 envelope.eventId(),
                 event.userId(),
                 event.template(),
                 title,
-                "Откройте ссылку, чтобы завершить действие в Owoke.",
+                "Откройте ссылку, чтобы завершить действие в For my L.",
                 event.actionUrl());
     }
 
@@ -298,15 +300,15 @@ public class IncomingEventProcessor {
             boolean accepted = "ACCEPT".equals(event.decision());
             title = accepted ? "Вы приняли свидание" : "Вы отклонили предложение";
             body = accepted
-                    ? "Статус свидания изменён. Детали доступны на сайте Owoke."
-                    : "Предложение отклонено. Детали доступны на сайте Owoke.";
+                    ? "Свидание подтверждено. Все детали ждут вас в For my L."
+                    : "Предложение отклонено. Детали доступны в For my L.";
         } else {
             title = "Не удалось изменить свидание";
             body = switch (event.errorCode()) {
                 case "PROPOSAL_NOT_FOUND" -> "Предложение не найдено или больше недоступно.";
                 case "ACTION_NOT_ALLOWED" -> "Это действие уже недоступно для текущего статуса свидания.";
                 case "COUPLE_NOT_ACTIVE" -> "Пара больше не активна.";
-                default -> "Повторите действие на сайте Owoke.";
+                default -> "Повторите действие на сайте For my L.";
             };
         }
         String actionUrl = dateUrl(event.proposalId());
@@ -324,8 +326,15 @@ public class IncomingEventProcessor {
     }
 
     private String proposalBody(java.time.Instant scheduledAt, String place, String address, String description) {
-        String body = DATE_FORMAT.format(scheduledAt.atZone(MOSCOW)) + " — " + place + ", " + address;
-        return description == null || description.isBlank() ? body : body + "\n" + description;
+        ZonedDateTime local = scheduledAt.atZone(MOSCOW);
+        StringBuilder body = new StringBuilder()
+                .append("📅 Дата: ").append(DATE_FORMAT.format(local))
+                .append("\n⏰ Время: ").append(TIME_FORMAT.format(local))
+                .append("\n📍 ").append(location(place, address));
+        if (description != null && !description.isBlank()) {
+            body.append("\n\n💭 ").append(description.strip());
+        }
+        return body.toString();
     }
 
     private String proposalBody(
@@ -340,19 +349,32 @@ public class IncomingEventProcessor {
         if (!"EVENT".equals(selectionType)) {
             return proposalBody(scheduledAt, place, address, description);
         }
-        StringBuilder body = new StringBuilder(DATE_FORMAT.format(scheduledAt.atZone(MOSCOW)))
-                .append(" — ").append(eventTitle)
-                .append("\n📍 ").append(place).append(", ").append(address);
+        ZonedDateTime local = scheduledAt.atZone(MOSCOW);
+        StringBuilder body = new StringBuilder()
+                .append("📅 Дата: ").append(DATE_FORMAT.format(local))
+                .append("\n⏰ Время: ").append(TIME_FORMAT.format(local))
+                .append("\n🎟 ").append(eventTitle)
+                .append("\n📍 ").append(location(place, address));
         if (eventPrice != null && !eventPrice.isBlank()) {
             body.append("\n💳 ").append(eventPrice);
         }
         if (description != null && !description.isBlank()) {
-            body.append("\n💭 ").append(description);
+            body.append("\n\n💭 ").append(description.strip());
         }
         if (eventSourceUrl != null && !eventSourceUrl.isBlank()) {
             body.append("\nИсточник: KudaGo — ").append(eventSourceUrl);
         }
         return body.toString();
+    }
+
+    private static String location(String place, String address) {
+        String normalizedPlace = place == null ? "" : place.strip();
+        String normalizedAddress = address == null ? "" : address.strip();
+        if (normalizedPlace.isEmpty()) return normalizedAddress;
+        if (normalizedAddress.isEmpty() || normalizedPlace.equalsIgnoreCase(normalizedAddress)) {
+            return normalizedPlace;
+        }
+        return normalizedPlace + ", " + normalizedAddress;
     }
 
     private String dateUrl(UUID proposalId) {

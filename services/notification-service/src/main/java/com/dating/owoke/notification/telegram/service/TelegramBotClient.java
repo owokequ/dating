@@ -200,7 +200,7 @@ public class TelegramBotClient {
                     .toList());
         }
         if (isPublicHttpUrl(actionUrl)) {
-            keyboard.add(List.of(Map.of("text", "Открыть Owoke 💗", "url", actionUrl)));
+            keyboard.add(List.of(Map.of("text", "Открыть For my L 💗", "url", actionUrl)));
         }
         return keyboard;
     }

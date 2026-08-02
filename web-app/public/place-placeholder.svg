@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
-  <title id="title">Owoke — место для свидания</title>
+  <title id="title">For my L — место для свидания</title>
   <desc id="desc">Романтичная иллюстрация Казани с сердцем</desc>
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
@@ -11,6 +11,6 @@
   <path d="M0 590 Q210 470 420 590 T840 580 T1200 570 V800 H0Z" fill="#918c77" opacity=".5"/>
   <path d="M0 650 Q250 540 500 660 T1000 650 T1200 640 V800 H0Z" fill="#615950" opacity=".7"/>
   <path d="M600 475 C525 405 400 485 600 665 C800 485 675 405 600 475Z" fill="#b84d63"/>
-  <text x="600" y="250" text-anchor="middle" fill="#3d3531" font-family="Georgia,serif" font-size="92">owoke</text>
+  <text x="600" y="250" text-anchor="middle" fill="#3d3531" font-family="Georgia,serif" font-size="92">For my L</text>
   <text x="600" y="325" text-anchor="middle" fill="#615950" font-family="Arial,sans-serif" font-size="30" letter-spacing="8">ВАШЕ МЕСТО ДЛЯ ДВОИХ</text>
 </svg>

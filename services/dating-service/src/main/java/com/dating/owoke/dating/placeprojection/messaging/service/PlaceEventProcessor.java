@@ -2,6 +2,7 @@ package com.dating.owoke.dating.placeprojection.messaging.service;
 
 import java.time.Clock;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,8 @@ import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class PlaceEventProcessor {
+
+    private static final Pattern LOSSY_TEXT = Pattern.compile("[?]{3,}");
 
     private static final Set<String> V1_EVENTS = Set.of(
             "PlaceDraftedV1", "PlacePublishedV1", "PlaceUpdatedV1", "PlaceArchivedV1");
@@ -51,6 +54,8 @@ public class PlaceEventProcessor {
         }
 
         PlaceChanged payload = readPayload(envelope);
+        rejectLossyText(payload.name(), "name");
+        rejectLossyText(payload.address(), "address");
         projectionService.upsert(
                 payload.placeId(),
                 payload.name(),
@@ -84,6 +89,12 @@ public class PlaceEventProcessor {
                 || envelope.eventVersion() == 2 && V2_EVENTS.contains(envelope.eventType());
         if (!supported) {
             throw new IllegalArgumentException("Unsupported places event type or version");
+        }
+    }
+
+    private static void rejectLossyText(String value, String field) {
+        if (value != null && LOSSY_TEXT.matcher(value).find()) {
+            throw new IllegalArgumentException("Place " + field + " contains lossy character replacement");
         }
     }
 }

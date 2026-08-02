@@ -128,6 +128,8 @@ class NotificationServiceApplicationTests {
                 .isEqualTo(mediaId);
         assertThat(jdbcTemplate.queryForObject("SELECT type FROM notifications", String.class))
                 .isEqualTo("DATE_PROPOSAL_CREATED");
+        assertThat(jdbcTemplate.queryForObject("SELECT body FROM notifications", String.class))
+                .contains("📅 Дата:", "⏰ Время:", "📍 Кафе, Казань", "💭 Вечернее свидание");
     }
 
     @Test

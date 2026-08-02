@@ -40,6 +40,37 @@ class KudaGoClientTest {
         server.verify();
     }
 
+    @Test
+    void replacesCoordinatePairWithHumanCityAddress() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KudaGoClient client = new KudaGoClient(builder, new KudaGoProperties(
+                true, "https://kudago.com", "kzn", 100, 10, 20));
+        server.expect(method(HttpMethod.GET)).andRespond(withSuccess("""
+                {
+                  "results": [{
+                    "id": 7823,
+                    "title": "Большое Голубое озеро",
+                    "address": "55.904599, 49.156603",
+                    "coords": {"lat": 55.90654, "lon": 49.15750},
+                    "categories": ["park"],
+                    "description": "Природное место",
+                    "images": [],
+                    "site_url": "https://kzn.kudago.com/place/goluboe-ozero/",
+                    "is_closed": false,
+                    "favorites_count": 42
+                  }]
+                }
+                """, MediaType.APPLICATION_JSON));
+
+        var result = client.search(KudaGoCollection.LEISURE);
+
+        assertThat(result).singleElement().satisfies(place -> {
+            assertThat(place.name()).isEqualTo("Большое Голубое озеро");
+            assertThat(place.address()).isEqualTo("Казань");
+        });
+    }
+
     private String responseJson() {
         return """
                 {
