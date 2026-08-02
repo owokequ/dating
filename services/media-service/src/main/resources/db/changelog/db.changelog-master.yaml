@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/003-add-draft-place-projection.yaml
   - include:
       file: db/changelog/changes/004-add-remote-event-media.yaml
+  - include:
+      file: db/changelog/changes/005-add-private-date-media.yaml

@@ -27,6 +27,7 @@ import com.dating.owoke.dating.shared.exception.ResourceNotFoundException;
 import com.dating.owoke.dating.shared.idempotency.service.IdempotencyService;
 import com.dating.owoke.dating.shared.messaging.event.DateProposalCreatedV3;
 import com.dating.owoke.dating.shared.messaging.event.DateProposalStatusChangedV3;
+import com.dating.owoke.dating.shared.messaging.event.PrivateDateDraftCreatedV1;
 import com.dating.owoke.dating.shared.messaging.service.OutboxService;
 
 @Service
@@ -158,6 +159,10 @@ public class DateProposalService {
         DateProposal proposal = proposalRepository.save(DateProposal.privateDraft(
                 activeCouple.couple().getId(), userId, responderId, scheduledAt, placeName, placeAddress,
                 description, now.plus(PRIVATE_DRAFT_TTL), now));
+        outboxService.enqueue(DATING_EVENTS_TOPIC, proposal.getCoupleId().toString(),
+                "PrivateDateDraftCreatedV1", 1, new PrivateDateDraftCreatedV1(
+                        proposal.getId(), proposal.getCoupleId(), proposal.getProposerId(), proposal.getResponderId(),
+                        proposal.getDraftExpiresAt()));
         idempotencyService.remember(userId, "CREATE_PRIVATE_DATE_DRAFT", idempotencyKey,
                 requestMaterial, proposal.getId());
         return details(proposal);

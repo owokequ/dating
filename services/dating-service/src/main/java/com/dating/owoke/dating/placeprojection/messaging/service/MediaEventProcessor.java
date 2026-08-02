@@ -10,6 +10,7 @@ import com.dating.owoke.dating.placeprojection.messaging.domain.MediaCollectionC
 import com.dating.owoke.dating.placeprojection.messaging.domain.MediaCollectionChangedV2;
 import com.dating.owoke.dating.placeprojection.service.PlaceProjectionService;
 import com.dating.owoke.dating.eventprojection.service.EventProjectionService;
+import com.dating.owoke.dating.dateproposal.service.DateProposalService;
 import com.dating.owoke.dating.shared.messaging.domain.InboxEvent;
 import com.dating.owoke.dating.shared.messaging.domain.IncomingEventEnvelope;
 import com.dating.owoke.dating.shared.messaging.repository.InboxEventRepository;
@@ -26,6 +27,7 @@ public class MediaEventProcessor {
     private final InboxEventRepository inboxRepository;
     private final PlaceProjectionService projectionService;
     private final EventProjectionService eventProjectionService;
+    private final DateProposalService dateProposalService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
@@ -33,11 +35,13 @@ public class MediaEventProcessor {
             InboxEventRepository inboxRepository,
             PlaceProjectionService projectionService,
             EventProjectionService eventProjectionService,
+            DateProposalService dateProposalService,
             ObjectMapper objectMapper,
             Clock clock) {
         this.inboxRepository = inboxRepository;
         this.projectionService = projectionService;
         this.eventProjectionService = eventProjectionService;
+        this.dateProposalService = dateProposalService;
         this.objectMapper = objectMapper;
         this.clock = clock;
     }
@@ -63,6 +67,8 @@ public class MediaEventProcessor {
                 projectionService.updateMedia(payload.ownerId(), payload.coverMediaId(), payload.collectionVersion());
             } else if ("EVENT".equals(payload.ownerType())) {
                 eventProjectionService.updateMedia(payload.ownerId(), payload.coverMediaId(), payload.collectionVersion());
+            } else if ("DATE_PROPOSAL".equals(payload.ownerType())) {
+                dateProposalService.updatePrivateDraftCover(payload.ownerId(), payload.coverMediaId());
             }
         }
         inboxRepository.saveAndFlush(new InboxEvent(

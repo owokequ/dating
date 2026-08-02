@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-add-private-date-media
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              ALTER TABLE media_collection_items DROP CONSTRAINT ck_media_owner_type;
+              ALTER TABLE media_collection_items ADD CONSTRAINT ck_media_owner_type
+                CHECK (owner_type IN ('PLACE', 'EVENT', 'DATE_PROPOSAL'));
+              ALTER TABLE media_collections DROP CONSTRAINT ck_media_collection_owner_type;
+              ALTER TABLE media_collections ADD CONSTRAINT ck_media_collection_owner_type
+                CHECK (owner_type IN ('PLACE', 'EVENT', 'DATE_PROPOSAL'));
+              CREATE TABLE private_date_draft_projections (
+                  proposal_id UUID PRIMARY KEY,
+                  proposer_id UUID NOT NULL,
+                  expires_at TIMESTAMPTZ NOT NULL
+              );

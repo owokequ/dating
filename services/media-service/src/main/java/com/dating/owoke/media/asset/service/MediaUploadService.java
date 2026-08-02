@@ -23,6 +23,7 @@ import com.dating.owoke.media.collection.repository.MediaCollectionItemRepositor
 import com.dating.owoke.media.collection.repository.MediaCollectionRepository;
 import com.dating.owoke.media.collection.repository.PlaceProjectionRepository;
 import com.dating.owoke.media.collection.repository.EventProjectionRepository;
+import com.dating.owoke.media.collection.repository.PrivateDateDraftProjectionRepository;
 import com.dating.owoke.media.processing.configuration.MediaProcessingProperties;
 import com.dating.owoke.media.processing.exception.InvalidImageException;
 import com.dating.owoke.media.processing.service.ImageFormatDetector;
@@ -42,6 +43,7 @@ public class MediaUploadService {
     private final MediaCollectionItemRepository itemRepository;
     private final PlaceProjectionRepository placeRepository;
     private final EventProjectionRepository eventRepository;
+    private final PrivateDateDraftProjectionRepository privateDraftRepository;
     private final ObjectStorage storage;
     private final MediaProcessingProperties properties;
     private final Clock clock;
@@ -53,6 +55,7 @@ public class MediaUploadService {
             MediaCollectionItemRepository itemRepository,
             PlaceProjectionRepository placeRepository,
             EventProjectionRepository eventRepository,
+            PrivateDateDraftProjectionRepository privateDraftRepository,
             ObjectStorage storage,
             MediaProcessingProperties properties,
             EntityManager entityManager,
@@ -62,6 +65,7 @@ public class MediaUploadService {
         this.itemRepository = itemRepository;
         this.placeRepository = placeRepository;
         this.eventRepository = eventRepository;
+        this.privateDraftRepository = privateDraftRepository;
         this.storage = storage;
         this.properties = properties;
         this.entityManager = entityManager;
@@ -78,9 +82,14 @@ public class MediaUploadService {
         return upload(MediaOwnerType.EVENT, eventId, uploadedBy, file);
     }
 
+    @Transactional
+    public MediaUploadResponse uploadPrivateDateProposal(UUID proposalId, UUID uploadedBy, MultipartFile file) {
+        return upload(MediaOwnerType.DATE_PROPOSAL, proposalId, uploadedBy, file);
+    }
+
     private MediaUploadResponse upload(
             MediaOwnerType ownerType, UUID ownerId, UUID uploadedBy, MultipartFile file) {
-        validateOwner(ownerType, ownerId);
+        validateOwner(ownerType, ownerId, uploadedBy);
 
         List<MediaCollectionItem> items = itemRepository.lockActive(ownerType, ownerId);
         if (items.size() >= MAX_IMAGES) {
@@ -124,12 +133,20 @@ public class MediaUploadService {
         return new MediaUploadResponse(asset.getId(), asset.getStatus().name());
     }
 
-    private void validateOwner(MediaOwnerType ownerType, UUID ownerId) {
+    private void validateOwner(MediaOwnerType ownerType, UUID ownerId, UUID uploadedBy) {
         if (ownerType == MediaOwnerType.PLACE) {
             PlaceProjection place = placeRepository.lockById(ownerId)
                     .orElseThrow(() -> new ResourceNotFoundException("Place is not available in media projection yet"));
             if (!place.acceptsUploads()) {
                 throw new BusinessConflictException("Images cannot be added to an archived place");
+            }
+            return;
+        }
+        if (ownerType == MediaOwnerType.DATE_PROPOSAL) {
+            var draft = privateDraftRepository.findById(ownerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Private date draft is not available in media projection yet"));
+            if (!draft.canUpload(uploadedBy, clock.instant())) {
+                throw new BusinessConflictException("Images can only be added by the private date draft author before sending");
             }
             return;
         }

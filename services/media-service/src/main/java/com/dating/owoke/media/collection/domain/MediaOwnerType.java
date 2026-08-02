@@ -2,5 +2,6 @@ package com.dating.owoke.media.collection.domain;
 
 public enum MediaOwnerType {
     PLACE,
-    EVENT
+    EVENT,
+    DATE_PROPOSAL
 }
