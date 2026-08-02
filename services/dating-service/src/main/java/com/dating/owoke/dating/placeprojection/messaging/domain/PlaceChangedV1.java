@@ -11,5 +11,5 @@ public record PlaceChangedV1(
         double latitude,
         double longitude,
         Integer priceLevel,
-        String status) {
+        String status) implements PlaceChanged {
 }

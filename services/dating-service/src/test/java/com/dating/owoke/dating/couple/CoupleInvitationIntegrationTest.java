@@ -386,6 +386,29 @@ class CoupleInvitationIntegrationTest {
                 .containsEntry("status", "ARCHIVED");
     }
 
+    @Test
+    void publishedV2PlaceCanBeUsedForDateProposal() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID partnerId = UUID.randomUUID();
+        activateCouple(ownerId, partnerId);
+        UUID placeId = UUID.randomUUID();
+
+        placeEventProcessor.process("places.events.v1", placeEventV2(
+                UUID.randomUUID(), "PlacePublishedV2", Instant.now(), placeId,
+                "KudaGo place", "Kazan", "ACTIVE"));
+
+        createProposal(
+                ownerId,
+                placeId,
+                "kudago-v2-place",
+                Instant.now().plusSeconds(86_400),
+                "Let's go");
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM date_proposals WHERE place_id = ?", Integer.class, placeId))
+                .isEqualTo(1);
+    }
+
     private int acceptAfter(CountDownLatch start, String token, UUID userId) throws Exception {
         start.await();
         return mockMvc.perform(post("/api/v1/couple-invitations/{token}/accept", token)
@@ -474,6 +497,47 @@ class CoupleInvitationIntegrationTest {
                     "longitude":49.106,
                     "priceLevel":2,
                     "status":"%s"
+                  }
+                }
+                """.formatted(
+                eventId, eventType, placeId, occurredAt, UUID.randomUUID(), placeId, name, address, status);
+    }
+
+    private String placeEventV2(
+            UUID eventId,
+            String eventType,
+            Instant occurredAt,
+            UUID placeId,
+            String name,
+            String address,
+            String status) {
+        return """
+                {
+                  "eventId":"%s",
+                  "eventType":"%s",
+                  "eventVersion":2,
+                  "aggregateId":"%s",
+                  "occurredAt":"%s",
+                  "correlationId":"%s",
+                  "payload":{
+                    "placeId":"%s",
+                    "cityCode":"KZN",
+                    "name":"%s",
+                    "address":"%s",
+                    "category":"ENTERTAINMENT",
+                    "latitude":55.796,
+                    "longitude":49.106,
+                    "priceLevel":null,
+                    "status":"%s",
+                    "source":"KUDAGO",
+                    "externalId":"42",
+                    "sourcePageUrl":"https://kzn.kudago.com/place/test/",
+                    "images":[{
+                      "providerAssetKey":"image-1",
+                      "remoteUrl":"https://media.kudago.com/images/place/test.jpg",
+                      "sourceName":"KudaGo",
+                      "sourceLink":null
+                    }]
                   }
                 }
                 """.formatted(

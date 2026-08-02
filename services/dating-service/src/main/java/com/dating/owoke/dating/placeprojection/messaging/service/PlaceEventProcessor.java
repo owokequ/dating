@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dating.owoke.dating.placeprojection.domain.PlaceProjectionStatus;
+import com.dating.owoke.dating.placeprojection.messaging.domain.PlaceChanged;
 import com.dating.owoke.dating.placeprojection.messaging.domain.PlaceChangedV1;
+import com.dating.owoke.dating.placeprojection.messaging.domain.PlaceChangedV2;
 import com.dating.owoke.dating.placeprojection.service.PlaceProjectionService;
 import com.dating.owoke.dating.shared.messaging.domain.InboxEvent;
 import com.dating.owoke.dating.shared.messaging.domain.IncomingEventEnvelope;
@@ -19,8 +21,10 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class PlaceEventProcessor {
 
-    private static final Set<String> SUPPORTED_EVENTS = Set.of(
+    private static final Set<String> V1_EVENTS = Set.of(
             "PlaceDraftedV1", "PlacePublishedV1", "PlaceUpdatedV1", "PlaceArchivedV1");
+    private static final Set<String> V2_EVENTS = Set.of(
+            "PlaceDraftedV2", "PlacePublishedV2", "PlaceUpdatedV2", "PlaceArchivedV2");
 
     private final InboxEventRepository inboxRepository;
     private final PlaceProjectionService projectionService;
@@ -46,7 +50,7 @@ public class PlaceEventProcessor {
             return;
         }
 
-        PlaceChangedV1 payload = objectMapper.treeToValue(envelope.payload(), PlaceChangedV1.class);
+        PlaceChanged payload = readPayload(envelope);
         projectionService.upsert(
                 payload.placeId(),
                 payload.name(),
@@ -55,6 +59,13 @@ public class PlaceEventProcessor {
                 envelope.occurredAt());
         inboxRepository.saveAndFlush(new InboxEvent(
                 envelope.eventId(), envelope.eventType(), topic, clock.instant()));
+    }
+
+    private PlaceChanged readPayload(IncomingEventEnvelope envelope) {
+        if (envelope.eventVersion() == 1) {
+            return objectMapper.treeToValue(envelope.payload(), PlaceChangedV1.class);
+        }
+        return objectMapper.treeToValue(envelope.payload(), PlaceChangedV2.class);
     }
 
     private IncomingEventEnvelope readEnvelope(String message) {
@@ -69,7 +80,9 @@ public class PlaceEventProcessor {
         if (envelope.eventId() == null || envelope.occurredAt() == null || envelope.payload() == null) {
             throw new IllegalArgumentException("Places event is missing required envelope fields");
         }
-        if (envelope.eventVersion() != 1 || !SUPPORTED_EVENTS.contains(envelope.eventType())) {
+        boolean supported = envelope.eventVersion() == 1 && V1_EVENTS.contains(envelope.eventType())
+                || envelope.eventVersion() == 2 && V2_EVENTS.contains(envelope.eventType());
+        if (!supported) {
             throw new IllegalArgumentException("Unsupported places event type or version");
         }
     }
