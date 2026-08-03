@@ -2,6 +2,7 @@ import { Outlet, useRouterState } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bell, CalendarHeart, Compass, Heart, LogOut, MapPin, Settings, Sparkles } from 'lucide-react'
 import { logout, useSession } from '../../features/auth/api/authApi'
+import { OnboardingOverlay } from '../../features/onboarding/ui/OnboardingOverlay'
 
 const primaryNavigation = [
   { href: '/dashboard', label: 'Сегодня', icon: CalendarHeart },
@@ -58,6 +59,7 @@ export function AppLayout() {
       </header>
       <main><Outlet /></main>
       <footer><span>For my L</span><span className="footer-heart">♡</span><span>Казань</span></footer>
+      <OnboardingOverlay />
       {session.data && (
         <nav className="mobile-nav" aria-label="Мобильная навигация">
           {primaryNavigation.map(({ href, label, icon: Icon }) => (

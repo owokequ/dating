@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-add-onboarding-state
+      author: codex
+      changes:
+        - addColumn:
+            tableName: users
+            columns:
+              - column: { name: onboarding_completed_at, type: timestamp with time zone }
+        - sql:
+            sql: UPDATE users SET onboarding_completed_at = created_at

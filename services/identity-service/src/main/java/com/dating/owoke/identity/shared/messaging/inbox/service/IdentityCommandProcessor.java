@@ -9,6 +9,8 @@ import com.dating.owoke.identity.shared.messaging.inbox.domain.InboxEvent;
 import com.dating.owoke.identity.shared.messaging.inbox.event.IncomingEventEnvelope;
 import com.dating.owoke.identity.shared.messaging.inbox.repository.InboxEventRepository;
 import com.dating.owoke.identity.telegram.service.TelegramBotLinkService;
+import com.dating.owoke.identity.account.service.AccountService;
+import com.dating.owoke.identity.shared.messaging.inbox.event.OnboardingCompletedV1;
 import com.dating.owoke.identity.telegram.service.TelegramLinkRequestedV1;
 
 import tools.jackson.core.JacksonException;
@@ -19,16 +21,18 @@ public class IdentityCommandProcessor {
 
     private final InboxEventRepository inboxRepository;
     private final TelegramBotLinkService telegramLinkService;
+    private final AccountService accountService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
     public IdentityCommandProcessor(
             InboxEventRepository inboxRepository,
-            TelegramBotLinkService telegramLinkService,
+            TelegramBotLinkService telegramLinkService, AccountService accountService,
             ObjectMapper objectMapper,
             Clock clock) {
         this.inboxRepository = inboxRepository;
         this.telegramLinkService = telegramLinkService;
+        this.accountService = accountService;
         this.objectMapper = objectMapper;
         this.clock = clock;
     }
@@ -42,10 +46,12 @@ public class IdentityCommandProcessor {
         if (inboxRepository.existsById(envelope.eventId())) {
             return;
         }
-        if (!"TelegramLinkRequestedV1".equals(envelope.eventType())) {
-            throw new IllegalArgumentException("Unsupported identity command: " + envelope.eventType());
+        switch (envelope.eventType()) {
+            case "TelegramLinkRequestedV1" -> telegramLinkService.link(treeToValue(envelope));
+            case "OnboardingCompletedV1" -> accountService.completeOnboarding(
+                    treeToValue(envelope, OnboardingCompletedV1.class).userId());
+            default -> throw new IllegalArgumentException("Unsupported identity command: " + envelope.eventType());
         }
-        telegramLinkService.link(treeToValue(envelope));
         inboxRepository.saveAndFlush(new InboxEvent(
                 envelope.eventId(), envelope.eventType(), topic, clock.instant()));
     }
@@ -56,6 +62,11 @@ public class IdentityCommandProcessor {
         } catch (JacksonException exception) {
             throw new IllegalArgumentException("Invalid Telegram link command", exception);
         }
+    }
+
+    private <T> T treeToValue(IncomingEventEnvelope envelope, Class<T> type) {
+        try { return objectMapper.treeToValue(envelope.payload(), type); }
+        catch (JacksonException exception) { throw new IllegalArgumentException("Invalid identity command", exception); }
     }
 
     private <T> T read(String value, Class<T> type) {

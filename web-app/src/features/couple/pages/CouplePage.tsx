@@ -43,7 +43,9 @@ export function CouplePage() {
             {couple.data.members.map((member) => (
               <article key={member.userId} className="member-card">
                 <span className="eyebrow">{member.role === 'OWNER' ? 'Начало истории' : 'Вместе с вами'}</span>
-                <strong>{member.userId === session.data?.userId ? 'Это вы' : 'Ваш человек'}</strong>
+                <strong>{member.userId === session.data?.userId
+                  ? session.data?.displayName
+                  : member.displayName || 'Ваш человек'}</strong>
                 <small>В паре с {formatDateTime(member.joinedAt)}</small>
               </article>
             ))}

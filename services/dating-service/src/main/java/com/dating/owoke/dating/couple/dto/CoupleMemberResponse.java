@@ -5,5 +5,5 @@ import java.util.UUID;
 
 import com.dating.owoke.dating.couple.domain.CoupleMemberRole;
 
-public record CoupleMemberResponse(UUID userId, CoupleMemberRole role, Instant joinedAt) {
+public record CoupleMemberResponse(UUID userId, String displayName, CoupleMemberRole role, Instant joinedAt) {
 }

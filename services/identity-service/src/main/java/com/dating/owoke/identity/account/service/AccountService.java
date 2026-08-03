@@ -66,6 +66,12 @@ public class AccountService {
                 account.getDisplayName(),
                 account.getStatus(),
                 account.getRole(),
-                telegramLinked);
+                telegramLinked,
+                account.isOnboardingCompleted());
+    }
+
+    @Transactional
+    public void completeOnboarding(UUID userId) {
+        userRepository.findById(userId).ifPresent(account -> account.completeOnboarding(clock.instant()));
     }
 }

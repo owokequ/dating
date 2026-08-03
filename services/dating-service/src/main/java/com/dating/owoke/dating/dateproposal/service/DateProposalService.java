@@ -34,6 +34,7 @@ import com.dating.owoke.dating.shared.messaging.service.OutboxService;
 public class DateProposalService {
 
     private static final String DATING_EVENTS_TOPIC = "dating.events.v1";
+    private static final String IDENTITY_COMMANDS_TOPIC = "identity.commands.v1";
     private static final Duration PRIVATE_DRAFT_TTL = Duration.ofHours(24);
 
     private final DateProposalRepository proposalRepository;
@@ -109,6 +110,7 @@ public class DateProposalService {
                 DATING_EVENTS_TOPIC,
                 activeCouple.couple().getId().toString(),
                 "DateProposalCreatedV3", 3, createdEvent(proposal));
+        completeOnboarding(proposal);
         idempotencyService.remember(
                 userId, "CREATE_DATE_PROPOSAL", idempotencyKey, requestMaterial, proposal.getId());
         return details(proposal);
@@ -136,6 +138,7 @@ public class DateProposalService {
                 occurrence.getId(), event.getTitle(), event.getSourcePageUrl(), event.getPriceText(), description, now));
         outboxService.enqueue(DATING_EVENTS_TOPIC, proposal.getCoupleId().toString(),
                 "DateProposalCreatedV3", 3, createdEvent(proposal));
+        completeOnboarding(proposal);
         idempotencyService.remember(userId, "CREATE_EVENT_DATE_PROPOSAL", idempotencyKey,
                 requestMaterial, proposal.getId());
         return details(proposal);
@@ -178,6 +181,7 @@ public class DateProposalService {
         proposal.send(userId, now);
         outboxService.enqueue(DATING_EVENTS_TOPIC, proposal.getCoupleId().toString(),
                 "DateProposalCreatedV3", 3, createdEvent(proposal));
+        completeOnboarding(proposal);
         idempotencyService.remember(userId, "SEND_PRIVATE_DATE_DRAFT", idempotencyKey,
                 proposalId.toString(), proposalId);
         return details(proposal);
@@ -334,6 +338,13 @@ public class DateProposalService {
                 proposal.getPlaceAddressSnapshot(), proposal.getPlaceCoverMediaIdSnapshot(), proposal.getEventId(),
                 proposal.getEventOccurrenceId(), proposal.getEventTitleSnapshot(), proposal.getEventSourceUrlSnapshot(),
                 proposal.getEventPriceSnapshot(), proposal.getDescription());
+    }
+
+    private void completeOnboarding(DateProposal proposal) {
+        for (UUID userId : List.of(proposal.getProposerId(), proposal.getResponderId())) {
+            outboxService.enqueue(IDENTITY_COMMANDS_TOPIC, userId.toString(), "OnboardingCompletedV1",
+                    new com.dating.owoke.dating.shared.messaging.event.OnboardingCompletedV1(userId));
+        }
     }
 
     private static DateProposalDetails details(DateProposal proposal) {

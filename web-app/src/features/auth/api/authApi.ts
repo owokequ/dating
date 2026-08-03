@@ -8,6 +8,7 @@ export type AccountProfile = {
   status: 'PENDING_VERIFICATION' | 'ACTIVE' | 'DISABLED'
   role: 'USER' | 'ADMIN'
   telegramLinked: boolean
+  onboardingCompleted: boolean
 }
 
 export type LoginInput = { email: string; password: string }

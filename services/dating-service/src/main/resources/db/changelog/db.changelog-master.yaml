@@ -15,3 +15,5 @@ databaseChangeLog:
       file: db/changelog/changes/007-add-private-date-drafts.yaml
   - include:
       file: db/changelog/changes/008-allow-date-proposal-drafts.yaml
+  - include:
+      file: db/changelog/changes/009-add-user-profile-projection.yaml

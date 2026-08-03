@@ -12,7 +12,8 @@ public record AccountProfileResponse(
         String displayName,
         AccountStatus status,
         AccountRole role,
-        boolean telegramLinked) {
+        boolean telegramLinked,
+        boolean onboardingCompleted) {
 
     public static AccountProfileResponse from(AccountProfile profile) {
         return new AccountProfileResponse(
@@ -21,6 +22,6 @@ public record AccountProfileResponse(
                 profile.displayName(),
                 profile.status(),
                 profile.role(),
-                profile.telegramLinked());
+                profile.telegramLinked(), profile.onboardingCompleted());
     }
 }

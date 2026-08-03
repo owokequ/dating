@@ -1,6 +1,6 @@
 import { ApiError, apiRequest } from '../../../shared/api/http'
 
-export type CoupleMember = { userId: string; role: 'OWNER' | 'PARTNER'; joinedAt: string }
+export type CoupleMember = { userId: string; displayName?: string | null; role: 'OWNER' | 'PARTNER'; joinedAt: string }
 export type Couple = {
   id: string
   status: 'PENDING' | 'ACTIVE' | 'CLOSED'

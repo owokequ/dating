@@ -11,5 +11,6 @@ public record AccountProfile(
         String displayName,
         AccountStatus status,
         AccountRole role,
-        boolean telegramLinked) {
+        boolean telegramLinked,
+        boolean onboardingCompleted) {
 }

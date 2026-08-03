@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-add-user-profile-projection
+      author: codex
+      changes:
+        - createTable:
+            tableName: user_profile_projection
+            columns:
+              - column: { name: user_id, type: uuid, constraints: { primaryKey: true, nullable: false } }
+              - column: { name: display_name, type: varchar(100), constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp with time zone, constraints: { nullable: false } }

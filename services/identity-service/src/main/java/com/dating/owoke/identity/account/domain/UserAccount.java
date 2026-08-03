@@ -40,6 +40,9 @@ public class UserAccount {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "onboarding_completed_at")
+    private Instant onboardingCompletedAt;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -81,6 +84,12 @@ public class UserAccount {
         this.displayName = normalizeDisplayName(displayName);
         this.updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
+
+    public void completeOnboarding(Instant now) {
+        if (onboardingCompletedAt == null) onboardingCompletedAt = Objects.requireNonNull(now, "now must not be null");
+    }
+
+    public boolean isOnboardingCompleted() { return onboardingCompletedAt != null; }
 
     public boolean isActive() {
         return status == AccountStatus.ACTIVE;

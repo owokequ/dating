@@ -9,9 +9,12 @@ import com.dating.owoke.dating.couple.dto.InvitationPreviewResponse;
 import com.dating.owoke.dating.couple.service.CoupleDetails;
 import com.dating.owoke.dating.couple.service.InvitationCreation;
 import com.dating.owoke.dating.couple.service.InvitationPreview;
+import com.dating.owoke.dating.userprojection.repository.UserProfileProjectionRepository;
 
 @Component
 public class CoupleMapper {
+    private final UserProfileProjectionRepository profiles;
+    public CoupleMapper(UserProfileProjectionRepository profiles) { this.profiles = profiles; }
 
     public CoupleResponse toResponse(CoupleDetails details) {
         return new CoupleResponse(
@@ -19,7 +22,7 @@ public class CoupleMapper {
                 details.status(),
                 details.members().stream()
                         .map(member -> new CoupleMemberResponse(
-                                member.userId(), member.role(), member.joinedAt()))
+                                member.userId(), profiles.findById(member.userId()).map(value -> value.getDisplayName()).orElse(null), member.role(), member.joinedAt()))
                         .toList(),
                 details.createdAt(),
                 details.activatedAt(),
