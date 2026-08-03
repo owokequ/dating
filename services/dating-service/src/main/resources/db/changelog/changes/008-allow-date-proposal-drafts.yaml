@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-allow-date-proposal-drafts
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              ALTER TABLE date_proposals DROP CONSTRAINT chk_date_proposals_status;
+              ALTER TABLE date_proposals ADD CONSTRAINT chk_date_proposals_status
+                CHECK (status IN ('DRAFT', 'PENDING_CONFIRMATION', 'ACCEPTED', 'DECLINED', 'CANCELLED', 'COMPLETED'));

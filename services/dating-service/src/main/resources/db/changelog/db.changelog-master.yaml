@@ -13,3 +13,5 @@ databaseChangeLog:
       file: db/changelog/changes/006-add-event-projection-and-proposals.yaml
   - include:
       file: db/changelog/changes/007-add-private-date-drafts.yaml
+  - include:
+      file: db/changelog/changes/008-allow-date-proposal-drafts.yaml
