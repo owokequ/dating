@@ -108,10 +108,23 @@ public class NotificationService {
             String actionUrl,
             UUID referenceId,
             UUID contextId) {
+        return createInAppOnly(sourceEventId, userId, type, title, body, actionUrl, referenceId, contextId, null);
+    }
+
+    public Notification createInAppOnly(
+            UUID sourceEventId,
+            UUID userId,
+            String type,
+            String title,
+            String body,
+            String actionUrl,
+            UUID referenceId,
+            UUID contextId,
+            UUID mediaId) {
         contactService.required(userId);
         return notificationRepository.save(new Notification(
                 sourceEventId, userId, type, title, body, actionUrl,
-                referenceId, contextId, null, clock.instant()));
+                referenceId, contextId, mediaId, clock.instant()));
     }
 
     @Transactional(readOnly = true)

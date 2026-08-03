@@ -41,7 +41,8 @@ public class TelegramDecisionService {
         return repository.lockReady(clock.instant()).stream().map(request -> {
             request.processing(clock.instant());
             return new TelegramDecisionTask(
-                    request.getRequestId(), request.getChatId(), request.getMessageId(),
+                    request.getRequestId(), request.getProposalId(), request.getActorId(),
+                    request.getChatId(), request.getMessageId(),
                     request.getResultCaption(), request.getActionUrl());
         }).toList();
     }

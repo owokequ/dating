@@ -6,6 +6,7 @@ import com.dating.owoke.notification.delivery.domain.DeliveryChannel;
 
 public record DeliveryTask(
         UUID attemptId,
+        UUID userId,
         DeliveryChannel channel,
         Long telegramChatId,
         String email,

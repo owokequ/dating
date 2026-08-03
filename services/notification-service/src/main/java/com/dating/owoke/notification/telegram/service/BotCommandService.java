@@ -2,7 +2,6 @@ package com.dating.owoke.notification.telegram.service;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -18,7 +17,6 @@ import com.dating.owoke.notification.shared.configuration.NotificationProperties
 import com.dating.owoke.notification.telegram.domain.TelegramUpdate;
 import com.dating.owoke.notification.telegram.domain.DateProposalCallback;
 import com.dating.owoke.notification.telegram.domain.ReminderCallback;
-import com.dating.owoke.notification.telegram.dto.TelegramInlineButton;
 import com.dating.owoke.notification.reminder.service.ReminderService;
 import com.dating.owoke.notification.telegram.messaging.event.DateProposalDecisionRequestedV1;
 import com.dating.owoke.notification.telegram.repository.TelegramUpdateRepository;
@@ -36,7 +34,7 @@ public class BotCommandService {
     private final TelegramDecisionService decisionService;
     private final ReminderService reminderService;
     private final StringRedisTemplate redisTemplate;
-    private final TelegramBotClient telegramClient;
+    private final TelegramDateCardService dateCardService;
     private final NotificationProperties notificationProperties;
     private final Clock clock;
 
@@ -48,7 +46,7 @@ public class BotCommandService {
             TelegramDecisionService decisionService,
             ReminderService reminderService,
             StringRedisTemplate redisTemplate,
-            TelegramBotClient telegramClient,
+            TelegramDateCardService dateCardService,
             NotificationProperties notificationProperties,
             Clock clock) {
         this.outboxService = outboxService;
@@ -58,7 +56,7 @@ public class BotCommandService {
         this.decisionService = decisionService;
         this.reminderService = reminderService;
         this.redisTemplate = redisTemplate;
-        this.telegramClient = telegramClient;
+        this.dateCardService = dateCardService;
         this.notificationProperties = notificationProperties;
         this.clock = clock;
     }
@@ -147,22 +145,22 @@ public class BotCommandService {
                 case "45m" -> confirmReminder(chatId, callback.proposalId(), contact.getUserId(), 45);
                 case "90m" -> confirmReminder(chatId, callback.proposalId(), contact.getUserId(), 90);
                 case "pick" -> {
-                    telegramClient.send(chatId, "Выберите свой интервал для напоминания:", null, List.of(
-                            new TelegramInlineButton("15 минут", new ReminderCallback("15m", callback.proposalId()).encode()),
-                            new TelegramInlineButton("45 минут", new ReminderCallback("45m", callback.proposalId()).encode()),
-                            new TelegramInlineButton("90 минут", new ReminderCallback("90m", callback.proposalId()).encode()),
-                            new TelegramInlineButton("Ввести минуты", new ReminderCallback("text", callback.proposalId()).encode())));
-                    yield new BotReply(chatId, "Выберите интервал в новом сообщении.");
+                    dateCardService.showReminderOptions(callback.proposalId(), contact.getUserId(), true);
+                    yield new BotReply(chatId, "Выберите свой интервал на карточке свидания.");
                 }
                 case "text" -> {
                     redisTemplate.opsForValue().set(reminderKey(telegramUserId), callback.proposalId().toString(), Duration.ofMinutes(10));
                     yield new BotReply(chatId, "Отправьте одним сообщением число минут: от 5 до 10080.");
                 }
                 case "edit" -> {
-                    telegramClient.send(chatId, "Когда напомнить о свидании?", null, reminderPresetButtons(callback.proposalId()));
+                    dateCardService.showReminderOptions(callback.proposalId(), contact.getUserId(), false);
                     yield new BotReply(chatId, "Выберите новый интервал.");
                 }
-                case "off" -> new BotReply(chatId, reminderService.disable(callback.proposalId(), contact.getUserId()));
+                case "off" -> {
+                    String result = reminderService.disable(callback.proposalId(), contact.getUserId());
+                    dateCardService.setReminder(callback.proposalId(), contact.getUserId(), "отключено", false);
+                    yield new BotReply(chatId, result);
+                }
                 default -> throw new IllegalArgumentException("Unsupported reminder action");
             };
         } catch (IllegalArgumentException exception) {
@@ -189,9 +187,7 @@ public class BotCommandService {
 
     private BotReply confirmReminder(long chatId, UUID proposalId, UUID userId, int minutes) {
         String text = reminderService.configure(proposalId, userId, minutes);
-        telegramClient.send(chatId, text, null, List.of(
-                new TelegramInlineButton("Изменить", new ReminderCallback("edit", proposalId).encode()),
-                new TelegramInlineButton("Отключить", new ReminderCallback("off", proposalId).encode())));
+        dateCardService.setReminder(proposalId, userId, readableInterval(text), true);
         return new BotReply(chatId, text);
     }
 
@@ -203,12 +199,8 @@ public class BotCommandService {
 
     private static String reminderKey(long telegramUserId) { return "notification:reminder-input:" + telegramUserId; }
 
-    private static List<TelegramInlineButton> reminderPresetButtons(UUID proposalId) {
-        return List.of(
-                new TelegramInlineButton("За 3 часа", new ReminderCallback("3h", proposalId).encode()),
-                new TelegramInlineButton("За 1 час", new ReminderCallback("1h", proposalId).encode()),
-                new TelegramInlineButton("За 30 минут", new ReminderCallback("30m", proposalId).encode()),
-                new TelegramInlineButton("Своё время", new ReminderCallback("pick", proposalId).encode()));
+    private static String readableInterval(String message) {
+        return message.replaceFirst("^Напомню за ", "").replaceFirst("\\.$", "");
     }
 
     private BotReply disableTelegram(long telegramUserId, long chatId) {

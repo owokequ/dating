@@ -75,7 +75,7 @@ public class ReminderService {
         String actionUrl = properties.webAppUrl() + "/dates/" + proposalId;
         for (UUID userId : new UUID[] { proposerId, responderId }) {
             contextRepository.save(new DateReminderContext(proposalId, userId, coupleId, scheduledAt, body, actionUrl, mediaId));
-            notificationService.create(envelope.eventId(), userId, "DATE_REMINDER_SELECTION",
+            notificationService.createInAppOnly(envelope.eventId(), userId, "DATE_REMINDER_SELECTION",
                     "Когда напомнить о свидании?", body, actionUrl, proposalId, coupleId, mediaId);
         }
     }

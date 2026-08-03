@@ -127,14 +127,27 @@ public class TelegramBotClient {
     }
 
     public void editPhotoCaption(long chatId, long messageId, String caption, String actionUrl) {
+        editPhotoCaption(chatId, messageId, caption, actionUrl, List.of());
+    }
+
+    public void editPhotoCaption(
+            long chatId,
+            long messageId,
+            String caption,
+            String actionUrl,
+            List<TelegramInlineButton> callbackButtons) {
         requireConfigured();
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("chat_id", chatId);
         request.put("message_id", messageId);
         request.put("caption", caption);
         request.put("parse_mode", "HTML");
-        List<List<Map<String, String>>> keyboard = keyboard(actionUrl, List.of());
-        request.put("reply_markup", Map.of("inline_keyboard", keyboard));
+        List<List<Map<String, String>>> keyboard = keyboard(actionUrl, callbackButtons);
+        if (keyboard.isEmpty()) {
+            request.put("reply_markup", Map.of("inline_keyboard", List.of()));
+        } else {
+            request.put("reply_markup", Map.of("inline_keyboard", keyboard));
+        }
         telegramCall("editMessageCaption", () -> restClient.post()
                 .uri("/bot{token}/editMessageCaption", properties.botToken())
                 .body(request)

@@ -9,9 +9,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.dating.owoke.notification.email.service.EmailClient;
 import com.dating.owoke.notification.telegram.dto.TelegramInlineButton;
 import com.dating.owoke.notification.telegram.domain.DateProposalCallback;
-import com.dating.owoke.notification.telegram.domain.ReminderCallback;
 import com.dating.owoke.notification.telegram.service.TelegramBotClient;
 import com.dating.owoke.notification.telegram.service.TelegramCardFormatter;
+import com.dating.owoke.notification.telegram.service.TelegramDateCardService;
 import com.dating.owoke.notification.telegram.service.TelegramMediaService;
 import com.dating.owoke.notification.telegram.service.TelegramPhotoResult;
 
@@ -23,6 +23,7 @@ public class DeliveryDispatcher {
     private final TelegramBotClient telegramClient;
     private final TelegramMediaService telegramMediaService;
     private final TelegramCardFormatter telegramCardFormatter;
+    private final TelegramDateCardService telegramDateCardService;
     private final EmailClient emailClient;
 
     public DeliveryDispatcher(
@@ -30,11 +31,13 @@ public class DeliveryDispatcher {
             TelegramBotClient telegramClient,
             TelegramMediaService telegramMediaService,
             TelegramCardFormatter telegramCardFormatter,
+            TelegramDateCardService telegramDateCardService,
             EmailClient emailClient) {
         this.deliveryService = deliveryService;
         this.telegramClient = telegramClient;
         this.telegramMediaService = telegramMediaService;
         this.telegramCardFormatter = telegramCardFormatter;
+        this.telegramDateCardService = telegramDateCardService;
         this.emailClient = emailClient;
     }
 
@@ -63,17 +66,49 @@ public class DeliveryDispatcher {
 
     private String deliverTelegram(DeliveryTask task) {
         long chatId = required(task.telegramChatId(), "Telegram chat is not linked");
+        String caption = telegramCardFormatter.format(task.title(), task.body());
+        List<TelegramInlineButton> buttons = telegramButtons(task);
+        if (updatesExistingCard(task)) {
+            return telegramDateCardService.updateExisting(
+                    task.referenceId(), task.userId(), caption, task.actionUrl(), buttons)
+                    .orElseGet(() -> sendTelegramCard(task, chatId, caption, buttons));
+        }
+        return sendTelegramCard(task, chatId, caption, buttons);
+    }
+
+    private String sendTelegramCard(
+            DeliveryTask task,
+            long chatId,
+            String caption,
+            List<TelegramInlineButton> buttons) {
         TelegramMediaService.PreparedTelegramPhoto prepared = task.mediaId() == null
                 ? telegramMediaService.preparePlaceholder()
                 : telegramMediaService.prepare(task.mediaId());
         TelegramPhotoResult result = telegramClient.sendPhoto(
                 chatId,
-                telegramCardFormatter.format(task.title(), task.body()),
+                caption,
                 task.actionUrl(),
-                telegramButtons(task),
+                buttons,
                 prepared.photo());
         telegramMediaService.remember(prepared, result);
+        if (isDateCard(task)) {
+            telegramDateCardService.rememberSent(
+                    task.referenceId(), task.userId(), chatId, Long.parseLong(result.messageId()),
+                    caption, task.actionUrl(), task.mediaId());
+        }
         return result.messageId();
+    }
+
+    private static boolean updatesExistingCard(DeliveryTask task) {
+        return isDateCard(task) && ("DATE_PROPOSAL_ACCEPTED".equals(task.notificationType())
+                || "DATE_PROPOSAL_DECLINED".equals(task.notificationType())
+                || "DATE_PROPOSAL_CANCELLED".equals(task.notificationType()));
+    }
+
+    private static boolean isDateCard(DeliveryTask task) {
+        return task.referenceId() != null && task.userId() != null
+                && task.notificationType().startsWith("DATE_PROPOSAL_")
+                && !"DATE_PROPOSAL_DECISION_RESULT".equals(task.notificationType());
     }
 
     private static <T> T required(T value, String message) {
@@ -84,12 +119,8 @@ public class DeliveryDispatcher {
     }
 
     private static List<TelegramInlineButton> telegramButtons(DeliveryTask task) {
-        if ("DATE_REMINDER_SELECTION".equals(task.notificationType()) && task.referenceId() != null) {
-            return List.of(
-                    new TelegramInlineButton("За 3 часа", new ReminderCallback("3h", task.referenceId()).encode()),
-                    new TelegramInlineButton("За 1 час", new ReminderCallback("1h", task.referenceId()).encode()),
-                    new TelegramInlineButton("За 30 минут", new ReminderCallback("30m", task.referenceId()).encode()),
-                    new TelegramInlineButton("Своё время", new ReminderCallback("pick", task.referenceId()).encode()));
+        if ("DATE_PROPOSAL_ACCEPTED".equals(task.notificationType()) && task.referenceId() != null) {
+            return TelegramDateCardService.reminderButtons(task.referenceId());
         }
         if (!"DATE_PROPOSAL_CREATED".equals(task.notificationType())
                 || task.referenceId() == null

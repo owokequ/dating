@@ -72,6 +72,7 @@ public class DeliveryService {
         attempt.markProcessing(clock.instant());
         return new DeliveryTask(
                 attempt.getId(),
+                notification.getUserId(),
                 attempt.getChannel(),
                 contact.getTelegramChatId(),
                 contact.getEmail(),

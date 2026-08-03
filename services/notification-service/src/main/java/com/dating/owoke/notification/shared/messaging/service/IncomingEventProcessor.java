@@ -28,7 +28,6 @@ import com.dating.owoke.notification.shared.messaging.event.UserProfileUpdatedV1
 import com.dating.owoke.notification.shared.messaging.event.UserRegisteredV1;
 import com.dating.owoke.notification.shared.messaging.event.UserTelegramLinkedV1;
 import com.dating.owoke.notification.shared.messaging.repository.InboxEventRepository;
-import com.dating.owoke.notification.telegram.service.TelegramCardFormatter;
 import com.dating.owoke.notification.telegram.service.TelegramDecisionService;
 
 import tools.jackson.core.JacksonException;
@@ -47,7 +46,6 @@ public class IncomingEventProcessor {
     private final NotificationService notificationService;
     private final ReminderService reminderService;
     private final TelegramDecisionService telegramDecisionService;
-    private final TelegramCardFormatter telegramCardFormatter;
     private final NotificationProperties properties;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -59,7 +57,6 @@ public class IncomingEventProcessor {
             NotificationService notificationService,
             ReminderService reminderService,
             TelegramDecisionService telegramDecisionService,
-            TelegramCardFormatter telegramCardFormatter,
             NotificationProperties properties,
             ObjectMapper objectMapper,
             Clock clock) {
@@ -69,7 +66,6 @@ public class IncomingEventProcessor {
         this.notificationService = notificationService;
         this.reminderService = reminderService;
         this.telegramDecisionService = telegramDecisionService;
-        this.telegramCardFormatter = telegramCardFormatter;
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.clock = clock;
@@ -223,7 +219,13 @@ public class IncomingEventProcessor {
                 "DATE_PROPOSAL_" + event.status(),
                 title,
                 proposalBody(event.scheduledAt(), event.placeName(), event.placeAddress(), event.description()),
-                dateUrl(event.proposalId()));
+                dateUrl(event.proposalId()), event.proposalId(), event.coupleId());
+        if (!recipient.equals(event.changedBy())) {
+            notificationService.create(
+                    envelope.eventId(), event.changedBy(), "DATE_PROPOSAL_" + event.status(), title,
+                    proposalBody(event.scheduledAt(), event.placeName(), event.placeAddress(), event.description()),
+                    dateUrl(event.proposalId()), event.proposalId(), event.coupleId());
+        }
         if ("ACCEPTED".equals(event.status())) {
             reminderService.schedule(envelope, event);
         } else if ("CANCELLED".equals(event.status())) {
@@ -254,6 +256,12 @@ public class IncomingEventProcessor {
                 envelope.eventId(), recipient, "DATE_PROPOSAL_" + event.status(), title,
                 proposalBody(event.scheduledAt(), event.placeName(), event.placeAddress(), event.description()),
                 dateUrl(event.proposalId()), event.proposalId(), event.coupleId(), event.placeCoverMediaId());
+        if (!recipient.equals(event.changedBy())) {
+            notificationService.create(
+                    envelope.eventId(), event.changedBy(), "DATE_PROPOSAL_" + event.status(), title,
+                    proposalBody(event.scheduledAt(), event.placeName(), event.placeAddress(), event.description()),
+                    dateUrl(event.proposalId()), event.proposalId(), event.coupleId(), event.placeCoverMediaId());
+        }
         if ("ACCEPTED".equals(event.status())) {
             reminderService.schedule(envelope, event);
         } else if ("CANCELLED".equals(event.status())) {
@@ -286,6 +294,14 @@ public class IncomingEventProcessor {
                         event.description(), event.selectionType(), event.eventTitle(),
                         event.eventPrice(), event.eventSourceUrl()),
                 dateUrl(event.proposalId()), event.proposalId(), event.coupleId(), event.coverMediaId());
+        if (!recipient.equals(event.changedBy())) {
+            notificationService.create(
+                    envelope.eventId(), event.changedBy(), "DATE_PROPOSAL_" + event.status(), title,
+                    proposalBody(event.scheduledAt(), event.placeName(), event.placeAddress(),
+                            event.description(), event.selectionType(), event.eventTitle(),
+                            event.eventPrice(), event.eventSourceUrl()),
+                    dateUrl(event.proposalId()), event.proposalId(), event.coupleId(), event.coverMediaId());
+        }
         if ("ACCEPTED".equals(event.status())) {
             reminderService.schedule(envelope, event);
         } else if ("CANCELLED".equals(event.status())) {
@@ -298,7 +314,7 @@ public class IncomingEventProcessor {
         String body;
         if (event.successful()) {
             boolean accepted = "ACCEPT".equals(event.decision());
-            title = accepted ? "Вы приняли свидание" : "Вы отклонили предложение";
+            title = accepted ? "Свидание подтверждено 💞" : "Предложение отклонено";
             body = accepted
                     ? "Свидание подтверждено. Все детали ждут вас в For my L."
                     : "Предложение отклонено. Детали доступны в For my L.";
@@ -313,7 +329,7 @@ public class IncomingEventProcessor {
         }
         String actionUrl = dateUrl(event.proposalId());
         boolean originalCardWillBeEdited = telegramDecisionService.result(
-                event.requestId(), event.actorId(), telegramCardFormatter.format(title, body));
+                event.requestId(), event.actorId(), title);
         if (originalCardWillBeEdited) {
             notificationService.createInAppOnly(
                     envelope.eventId(), event.actorId(), "DATE_PROPOSAL_DECISION_RESULT",

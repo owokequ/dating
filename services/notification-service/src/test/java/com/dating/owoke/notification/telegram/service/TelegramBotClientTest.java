@@ -94,6 +94,27 @@ class TelegramBotClientTest {
     }
 
     @Test
+    void acceptedCardKeepsThePhotoAndReplacesDecisionButtonsWithReminderChoices() {
+        server.expect(requestTo("https://api.telegram.org/bottest-token/editMessageCaption"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(request -> {
+                    String body = ((MockClientHttpRequest) request).getBodyAsString();
+                    assertThat(body).contains("callback_data", "rem:3h:", "rem:pick:", "Открыть For my L");
+                })
+                .andRespond(withSuccess("{\"ok\":true,\"result\":{\"message_id\":42}}", MediaType.APPLICATION_JSON));
+
+        client.editPhotoCaption(
+                123L,
+                42L,
+                "<b>Свидание подтверждено 💞</b>",
+                "https://owoke.app/dates/1",
+                List.of(
+                        new TelegramInlineButton("За 3 часа", "rem:3h:proposal"),
+                        new TelegramInlineButton("Своё время", "rem:pick:proposal")));
+        server.verify();
+    }
+
+    @Test
     void publicActionUrlIsSentAsInlineButton() {
         server.expect(requestTo("https://api.telegram.org/bottest-token/sendMessage"))
                 .andExpect(method(HttpMethod.POST))

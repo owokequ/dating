@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/changes/004-add-telegram-media.yaml
   - include:
       file: db/changelog/changes/005-add-personal-reminders.yaml
+  - include:
+      file: db/changelog/changes/006-add-telegram-date-cards.yaml

@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-add-telegram-date-cards
+      author: codex
+      changes:
+        - createTable:
+            tableName: telegram_date_cards
+            columns:
+              - column: { name: proposal_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: user_id, type: uuid, constraints: { nullable: false } }
+              - column: { name: chat_id, type: bigint, constraints: { nullable: false } }
+              - column: { name: message_id, type: bigint, constraints: { nullable: false } }
+              - column: { name: caption, type: varchar(1024), constraints: { nullable: false } }
+              - column: { name: action_url, type: varchar(1000) }
+              - column: { name: media_id, type: uuid }
+              - column: { name: updated_at, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+        - addPrimaryKey:
+            tableName: telegram_date_cards
+            columnNames: proposal_id,user_id
+            constraintName: pk_telegram_date_cards

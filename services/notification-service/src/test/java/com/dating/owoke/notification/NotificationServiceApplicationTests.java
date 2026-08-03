@@ -307,7 +307,7 @@ class NotificationServiceApplicationTests {
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT title FROM notifications WHERE type = 'DATE_PROPOSAL_DECISION_RESULT'",
-                String.class)).isEqualTo("Вы приняли свидание");
+                String.class)).isEqualTo("Свидание подтверждено 💞");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT reference_id FROM notifications WHERE type = 'DATE_PROPOSAL_DECISION_RESULT'",
                 UUID.class)).isEqualTo(proposalId);
