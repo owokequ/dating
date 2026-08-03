@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { ImagePlus, MapPin, Send } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { toMoscowIso } from '../../../shared/lib/date'
+import { toMoscowIso, toMoscowLocalInput } from '../../../shared/lib/date'
 import { ErrorMessage, PageTitle } from '../../../shared/ui/Feedback'
 import { createPrivatePlaceDraft, getDate, sendPrivatePlaceDraft, uploadPrivatePlaceCover } from '../api/datesApi'
 
@@ -13,10 +13,14 @@ export function PrivatePlaceDatePage() {
   const [scheduledAt, setScheduledAt] = useState('')
   const [description, setDescription] = useState('')
   const [cover, setCover] = useState<File | null>(null)
+  const minScheduledAt = useMemo(() => toMoscowLocalInput(new Date(Date.now() + 5 * 60_000)), [])
   const previewUrl = useMemo(() => cover ? URL.createObjectURL(cover) : null, [cover])
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
   const create = useMutation({
     mutationFn: async () => {
+      if (new Date(toMoscowIso(scheduledAt)).getTime() <= Date.now()) {
+        throw new Error('Выберите дату и время в будущем.')
+      }
       const draft = await createPrivatePlaceDraft({ scheduledAt: toMoscowIso(scheduledAt), placeName, placeAddress: address || undefined, description: description || undefined })
       if (cover) {
         await uploadPrivatePlaceCover(draft.id, cover)
