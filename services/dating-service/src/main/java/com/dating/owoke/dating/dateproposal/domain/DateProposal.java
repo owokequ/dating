@@ -41,7 +41,7 @@ public class DateProposal {
     private String placeNameSnapshot;
     @Column(name = "place_address_snapshot", nullable = false, updatable = false, length = 500)
     private String placeAddressSnapshot;
-    @Column(name = "place_cover_media_id_snapshot", updatable = false)
+    @Column(name = "place_cover_media_id_snapshot")
     private UUID placeCoverMediaIdSnapshot;
     @Column(name = "event_id", updatable = false)
     private UUID eventId;

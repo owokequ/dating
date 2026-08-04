@@ -40,4 +40,17 @@ class DateProposalPrivateDraftTest {
         assertThatThrownBy(() -> draft.send(proposer, now.plus(2, ChronoUnit.MINUTES)))
                 .isInstanceOf(InvalidDateProposalActionException.class);
     }
+
+    @Test
+    void storesCoverWhilePrivateDraftIsStillEditable() {
+        Instant now = Instant.parse("2026-08-03T10:00:00Z");
+        DateProposal draft = DateProposal.privateDraft(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), now.plus(3, ChronoUnit.DAYS),
+                "Private place", null, null, now.plus(24, ChronoUnit.HOURS), now);
+        UUID coverMediaId = UUID.randomUUID();
+
+        draft.updateDraftCover(coverMediaId);
+
+        assertThat(draft.getPlaceCoverMediaIdSnapshot()).isEqualTo(coverMediaId);
+    }
 }

@@ -1,11 +1,24 @@
 import { useMutation } from '@tanstack/react-query'
 import { ImagePlus, MapPin, Send } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { ApiError } from '../../../shared/api/http'
 import { toMoscowIso, toMoscowLocalInput } from '../../../shared/lib/date'
 import { ErrorMessage, PageTitle } from '../../../shared/ui/Feedback'
 import { createPrivatePlaceDraft, getDate, sendPrivatePlaceDraft, uploadPrivatePlaceCover } from '../api/datesApi'
 
 const sleep = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds))
+
+async function uploadCoverWhenDraftIsReady(proposalId: string, cover: File) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      return await uploadPrivatePlaceCover(proposalId, cover)
+    } catch (error) {
+      const projectionIsStillPending = error instanceof ApiError && error.status === 404
+      if (!projectionIsStillPending || attempt === 19) throw error
+      await sleep(500)
+    }
+  }
+}
 
 export function PrivatePlaceDatePage() {
   const [placeName, setPlaceName] = useState('')
@@ -23,7 +36,7 @@ export function PrivatePlaceDatePage() {
       }
       const draft = await createPrivatePlaceDraft({ scheduledAt: toMoscowIso(scheduledAt), placeName, placeAddress: address || undefined, description: description || undefined })
       if (cover) {
-        await uploadPrivatePlaceCover(draft.id, cover)
+        await uploadCoverWhenDraftIsReady(draft.id, cover)
         for (let attempt = 0; attempt < 20; attempt += 1) {
           await sleep(500)
           if ((await getDate(draft.id)).placeCoverMediaId) break
