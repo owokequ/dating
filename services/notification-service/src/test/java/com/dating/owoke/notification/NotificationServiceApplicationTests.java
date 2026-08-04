@@ -19,16 +19,24 @@ import org.springframework.kafka.core.KafkaTemplate;
 import com.dating.owoke.notification.shared.messaging.service.IncomingEventProcessor;
 import com.dating.owoke.notification.telegram.service.BotCommandService;
 import com.dating.owoke.notification.telegram.domain.DateProposalCallback;
+import com.dating.owoke.notification.availability.domain.MonitorStatus;
+import com.dating.owoke.notification.availability.dto.SiteAvailabilityWebhookRequest;
+import com.dating.owoke.notification.availability.service.SiteAvailabilityService;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = {
         "owoke.delivery.enabled=false",
-        "owoke.outbox.enabled=false"
+        "owoke.outbox.enabled=false",
+        "owoke.site-availability.enabled=true",
+        "owoke.site-availability.webhook-secret=test-site-secret",
+        "owoke.site-availability.frontend-monitor-id=frontend-monitor",
+        "owoke.site-availability.api-monitor-id=api-monitor"
 })
 class NotificationServiceApplicationTests {
 
@@ -40,6 +48,9 @@ class NotificationServiceApplicationTests {
 
     @Autowired
     private BotCommandService botCommandService;
+
+    @Autowired
+    private SiteAvailabilityService siteAvailabilityService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -60,7 +71,12 @@ class NotificationServiceApplicationTests {
                 TRUNCATE TABLE telegram_decision_requests, telegram_media_cache, telegram_updates,
                     outbox_events, failed_messages, inbox_events,
                     delivery_attempts, scheduled_notifications, notifications,
-                    notification_preferences, contact_projections CASCADE
+                    notification_preferences, contact_projections, site_availability_states CASCADE
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO site_availability_states (
+                    id, frontend_status, api_status, recovery_pending, updated_at, version
+                ) VALUES (1, 'UNKNOWN', 'UNKNOWN', TRUE, NOW(), 0)
                 """);
     }
 
@@ -217,6 +233,58 @@ class NotificationServiceApplicationTests {
                 .isEqualTo("EMAIL_VERIFICATION");
         assertThat(jdbcTemplate.queryForObject("SELECT channel FROM delivery_attempts", String.class))
                 .isEqualTo("EMAIL");
+    }
+
+    @Test
+    void siteRecoveryCreatesOneTelegramDeliveryForEachLinkedUserWithoutDuplicates() {
+        UUID userId = UUID.randomUUID();
+        processUserRegistered(userId, "Alice", "alice@example.com");
+        eventProcessor.process("identity.events.v1", envelope(
+                UUID.randomUUID(),
+                "UserTelegramLinkedV1",
+                userId,
+                Map.of(
+                        "userId", userId,
+                        "telegramUserId", 987654321L,
+                        "username", "alice",
+                        "botAccess", true)));
+
+        siteAvailabilityService.accept("test-site-secret", webhook("frontend-monitor", MonitorStatus.UP));
+        assertThat(count("notifications")).isEqualTo(1);
+        assertThat(count("delivery_attempts")).isEqualTo(1);
+
+        siteAvailabilityService.accept("test-site-secret", webhook("api-monitor", MonitorStatus.UP));
+        siteAvailabilityService.accept("test-site-secret", webhook("api-monitor", MonitorStatus.UP));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM notifications WHERE type = 'SITE_AVAILABLE'", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM delivery_attempts WHERE channel = 'TELEGRAM'", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void siteRecoveryDoesNotCreateEmailFallbackCandidatesForUsersWithoutTelegram() {
+        UUID userId = UUID.randomUUID();
+        processUserRegistered(userId, "Alice", "alice@example.com");
+
+        siteAvailabilityService.accept("test-site-secret", webhook("frontend-monitor", MonitorStatus.UP));
+        siteAvailabilityService.accept("test-site-secret", webhook("api-monitor", MonitorStatus.UP));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM notifications WHERE type = 'SITE_AVAILABLE'", Integer.class)).isZero();
+        assertThat(count("delivery_attempts")).isZero();
+    }
+
+    @Test
+    void siteAvailabilityWebhookRejectsAnInvalidSecretWithoutChangingState() {
+        assertThatThrownBy(() -> siteAvailabilityService.accept(
+                "wrong-secret", webhook("frontend-monitor", MonitorStatus.DOWN)))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Site availability webhook is not authorized");
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT frontend_status FROM site_availability_states WHERE id = 1", String.class))
+                .isEqualTo("UNKNOWN");
     }
 
     @Test
@@ -382,6 +450,10 @@ class NotificationServiceApplicationTests {
 
     private int count(String table) {
         return jdbcTemplate.queryForObject("SELECT count(*) FROM " + table, Integer.class);
+    }
+
+    private SiteAvailabilityWebhookRequest webhook(String monitorId, MonitorStatus status) {
+        return new SiteAvailabilityWebhookRequest(monitorId, status, Instant.now().getEpochSecond());
     }
 
     private void waitUntil(java.util.function.BooleanSupplier condition) throws InterruptedException {

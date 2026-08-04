@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-add-site-availability-state
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE site_availability_states (
+                  id SMALLINT PRIMARY KEY,
+                  frontend_status VARCHAR(16) NOT NULL,
+                  api_status VARCHAR(16) NOT NULL,
+                  recovery_pending BOOLEAN NOT NULL,
+                  updated_at TIMESTAMPTZ NOT NULL,
+                  version BIGINT NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_site_availability_singleton CHECK (id = 1),
+                  CONSTRAINT ck_site_availability_frontend_status CHECK (frontend_status IN ('UNKNOWN', 'UP', 'DOWN')),
+                  CONSTRAINT ck_site_availability_api_status CHECK (api_status IN ('UNKNOWN', 'UP', 'DOWN'))
+              );
+
+              INSERT INTO site_availability_states (
+                  id, frontend_status, api_status, recovery_pending, updated_at, version
+              ) VALUES (1, 'UNKNOWN', 'UNKNOWN', TRUE, NOW(), 0);

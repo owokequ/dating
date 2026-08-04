@@ -62,6 +62,11 @@ owoke:
     from-email: ${NOTIFICATION_FROM_EMAIL:noreply@owoke.local}
     media-service-url: ${MEDIA_SERVICE_URL:http://localhost:8085}
     delivery-fixed-delay: ${NOTIFICATION_DELIVERY_FIXED_DELAY:1000}
+  site-availability:
+    enabled: ${SITE_AVAILABILITY_ENABLED:false}
+    webhook-secret: ${SITE_AVAILABILITY_WEBHOOK_SECRET:}
+    frontend-monitor-id: ${SITE_AVAILABILITY_FRONTEND_MONITOR_ID:}
+    api-monitor-id: ${SITE_AVAILABILITY_API_MONITOR_ID:}
   telegram:
     enabled: ${TELEGRAM_BOT_ENABLED:false}
     mode: ${TELEGRAM_BOT_MODE:webhook}

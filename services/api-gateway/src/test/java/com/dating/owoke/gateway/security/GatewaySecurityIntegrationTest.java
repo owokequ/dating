@@ -85,6 +85,12 @@ class GatewaySecurityIntegrationTest {
     }
 
     @Test
+    void publicAvailabilityEndpointDoesNotRequireAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/system/availability"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void stateChangingRequestRequiresCsrfToken() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType("application/json")
@@ -101,10 +107,23 @@ class GatewaySecurityIntegrationTest {
                 .andExpect(status().isNoContent());
     }
 
+    @Test
+    void siteAvailabilityWebhookUsesThePublicCsrfExemptRoute() throws Exception {
+        mockMvc.perform(post("/api/v1/site-availability/webhook")
+                        .contentType("application/json")
+                        .content("{\"monitorId\":\"frontend\",\"status\":\"UP\",\"occurredAt\":\"2026-08-04T00:00:00Z\"}"))
+                .andExpect(status().isNoContent());
+    }
+
     private static HttpServer createNotificationStub() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
             server.createContext("/api/v1/telegram/webhook", exchange -> {
+                exchange.getRequestBody().readAllBytes();
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+            });
+            server.createContext("/api/v1/site-availability/webhook", exchange -> {
                 exchange.getRequestBody().readAllBytes();
                 exchange.sendResponseHeaders(204, -1);
                 exchange.close();

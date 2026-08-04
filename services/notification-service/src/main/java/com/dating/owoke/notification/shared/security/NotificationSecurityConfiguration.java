@@ -18,9 +18,14 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 import com.dating.owoke.notification.shared.configuration.NotificationProperties;
+import com.dating.owoke.notification.availability.configuration.SiteAvailabilityProperties;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({NotificationSecurityProperties.class, NotificationProperties.class})
+@EnableConfigurationProperties({
+        NotificationSecurityProperties.class,
+        NotificationProperties.class,
+        SiteAvailabilityProperties.class
+})
 public class NotificationSecurityConfiguration {
 
     @Bean
@@ -31,7 +36,8 @@ public class NotificationSecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
-                                "/actuator/health", "/actuator/health/**", "/actuator/prometheus", "/api/v1/telegram/webhook")
+                                "/actuator/health", "/actuator/health/**", "/actuator/prometheus",
+                                "/api/v1/telegram/webhook", "/api/v1/site-availability/webhook")
                         .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer

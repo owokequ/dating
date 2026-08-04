@@ -91,6 +91,9 @@ public class DeliveryService {
         }
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new IllegalStateException("Notification is missing for fallback"));
+        if ("SITE_AVAILABLE".equals(notification.getType())) {
+            return;
+        }
         ContactProjection contact = contactService.required(notification.getUserId());
         NotificationPreference preference = preferenceRepository.findById(notification.getUserId())
                 .orElseThrow(() -> new IllegalStateException("Preferences are missing for fallback"));

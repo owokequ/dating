@@ -219,6 +219,51 @@ After deployment, register the Telegram webhook at the ordinary HTTPS endpoint
 `TELEGRAM_WEBHOOK_SECRET` as Telegram's `secret_token`. The bot buttons link to
 the website; no Telegram Mini App API is used.
 
+### Public availability alerts
+
+For a laptop/CloudPub deployment, Owoke itself cannot report that it is offline:
+when the laptop is switched off, Notification Service is off too. Use two
+external HTTP(s) monitors in UptimeRobot (5-minute checks are sufficient):
+
+```text
+https://<public-domain>/
+https://<public-domain>/api/v1/system/availability
+```
+
+Configure the monitor's `DOWN` alert for the owner's Telegram contact. Configure
+its `UP` webhook with this URL and header:
+
+```text
+POST https://<public-domain>/api/v1/site-availability/webhook
+X-Site-Availability-Secret: <SITE_AVAILABILITY_WEBHOOK_SECRET>
+Content-Type: application/json
+```
+
+Use this UptimeRobot custom JSON body (the service intentionally accepts its
+native Unix timestamp):
+
+```json
+{
+  "monitorId": "*monitorID*",
+  "status": "*alertTypeFriendlyName*",
+  "occurredAt": *alertDateTime*
+}
+```
+
+Set the monitor IDs and secret in the ignored environment file:
+
+```dotenv
+SITE_AVAILABILITY_ENABLED=true
+SITE_AVAILABILITY_WEBHOOK_SECRET=<long-random-secret>
+SITE_AVAILABILITY_FRONTEND_MONITOR_ID=<frontend-monitor-id>
+SITE_AVAILABILITY_API_MONITOR_ID=<api-monitor-id>
+```
+
+`DOWN` is sent directly by UptimeRobot only to the owner. Once both monitors
+recover, For my L sends one Telegram message to every user with an active bot
+link and Telegram notifications enabled. Repeated callbacks do not create
+duplicates, and status notifications never fall back to email.
+
 The bundled single-node Kafka listener is private to the one-host Docker network.
 When Kafka moves off-host or to a managed cluster, set the clients and broker to
 SASL/TLS before opening network access. One VPS, one Kafka broker and local

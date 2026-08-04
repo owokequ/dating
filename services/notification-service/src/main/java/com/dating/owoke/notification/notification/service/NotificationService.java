@@ -127,6 +127,24 @@ public class NotificationService {
                 referenceId, contextId, mediaId, clock.instant()));
     }
 
+    public void createTelegramOnly(
+            UUID sourceEventId,
+            UUID userId,
+            String type,
+            String title,
+            String body,
+            String actionUrl) {
+        ContactProjection contact = contactService.required(userId);
+        NotificationPreference preference = preferenceRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("Notification preferences are missing for " + userId));
+        if (!preference.isTelegramEnabled() || !contact.hasBotAccess() || contact.getTelegramChatId() == null) {
+            return;
+        }
+        Notification notification = notificationRepository.save(
+                new Notification(sourceEventId, userId, type, title, body, actionUrl, clock.instant()));
+        deliveryRepository.save(new DeliveryAttempt(notification.getId(), DeliveryChannel.TELEGRAM, clock.instant()));
+    }
+
     @Transactional(readOnly = true)
     public List<Notification> list(UUID userId, int limit) {
         int safeLimit = Math.max(1, Math.min(limit, 100));
