@@ -453,7 +453,7 @@ class NotificationServiceApplicationTests {
     }
 
     private SiteAvailabilityWebhookRequest webhook(String monitorId, MonitorStatus status) {
-        return new SiteAvailabilityWebhookRequest(monitorId, status, Instant.now().getEpochSecond());
+        return new SiteAvailabilityWebhookRequest(monitorId, status.name(), Instant.now().getEpochSecond());
     }
 
     private void waitUntil(java.util.function.BooleanSupplier condition) throws InterruptedException {

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dating.owoke.notification.availability.configuration.SiteAvailabilityProperties;
 import com.dating.owoke.notification.availability.domain.MonitorKind;
+import com.dating.owoke.notification.availability.domain.MonitorStatus;
 import com.dating.owoke.notification.availability.dto.SiteAvailabilityWebhookRequest;
 import com.dating.owoke.notification.availability.exception.InvalidSiteAvailabilityWebhookException;
 import com.dating.owoke.notification.availability.repository.SiteAvailabilityStateRepository;
@@ -49,7 +50,7 @@ public class SiteAvailabilityService {
         MonitorKind monitor = resolveMonitor(request.monitorId());
         boolean recovered = stateRepository.lockSingleton()
                 .orElseThrow(() -> new IllegalStateException("Site availability state is missing"))
-                .apply(monitor, request.status(), Instant.ofEpochSecond(request.occurredAt()));
+                .apply(monitor, MonitorStatus.fromExternal(request.status()), Instant.ofEpochSecond(request.occurredAt()));
         if (!recovered) {
             return;
         }
