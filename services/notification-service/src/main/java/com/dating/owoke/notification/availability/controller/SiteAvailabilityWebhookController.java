@@ -15,7 +15,7 @@ import com.dating.owoke.notification.availability.service.SiteAvailabilityServic
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/v1/site-availability")
+@RequestMapping("/api/v1/site-availability/recoveries")
 @ConditionalOnProperty(prefix = "owoke.site-availability", name = "enabled", havingValue = "true")
 public class SiteAvailabilityWebhookController {
 
@@ -25,7 +25,7 @@ public class SiteAvailabilityWebhookController {
         this.service = service;
     }
 
-    @PostMapping("/webhook")
+    @PostMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void accept(
             @RequestHeader(name = "X-Site-Availability-Secret", required = false) String secret,

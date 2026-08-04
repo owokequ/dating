@@ -140,6 +140,9 @@ public class NotificationService {
         if (!preference.isTelegramEnabled() || !contact.hasBotAccess() || contact.getTelegramChatId() == null) {
             return;
         }
+        if (notificationRepository.existsBySourceEventIdAndUserIdAndType(sourceEventId, userId, type)) {
+            return;
+        }
         Notification notification = notificationRepository.save(
                 new Notification(sourceEventId, userId, type, title, body, actionUrl, clock.instant()));
         deliveryRepository.save(new DeliveryAttempt(notification.getId(), DeliveryChannel.TELEGRAM, clock.instant()));

@@ -1,10 +1,9 @@
 package com.dating.owoke.notification.availability.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.UUID;
+
 public record SiteAvailabilityWebhookRequest(
-        @NotBlank String monitorId,
-        @NotBlank String status,
-        @NotNull Long occurredAt) {
+        @NotNull UUID incidentId) {
 }

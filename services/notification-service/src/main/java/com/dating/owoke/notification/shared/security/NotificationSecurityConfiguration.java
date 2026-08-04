@@ -37,7 +37,7 @@ public class NotificationSecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
                                 "/actuator/health", "/actuator/health/**", "/actuator/prometheus",
-                                "/api/v1/telegram/webhook", "/api/v1/site-availability/webhook")
+                                "/api/v1/telegram/webhook", "/api/v1/site-availability/recoveries")
                         .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer

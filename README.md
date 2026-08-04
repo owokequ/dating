@@ -219,50 +219,97 @@ After deployment, register the Telegram webhook at the ordinary HTTPS endpoint
 `TELEGRAM_WEBHOOK_SECRET` as Telegram's `secret_token`. The bot buttons link to
 the website; no Telegram Mini App API is used.
 
-### Public availability alerts
+### Public availability alerts with Cloudflare Worker
 
-For a laptop/CloudPub deployment, Owoke itself cannot report that it is offline:
-when the laptop is switched off, Notification Service is off too. Use two
-external HTTP(s) monitors in UptimeRobot (5-minute checks are sufficient):
-
-```text
-https://<public-domain>/
-https://<public-domain>/api/v1/system/availability
-```
-
-Configure the monitor's `DOWN` alert for the owner's Telegram contact. Configure
-its `UP` webhook with this URL and header:
+For a laptop/CloudPub deployment, Owoke cannot report its own outage: if the
+laptop is off, Notification Service is off too. The included Cloudflare Worker
+performs this job outside the laptop every five minutes. It checks both the web
+page and Gateway availability endpoint, requires two consecutive failed or
+successful checks (ten minutes) to avoid alert noise, and stores its state in a
+SQLite-backed Durable Object.
 
 ```text
-POST https://<public-domain>/api/v1/site-availability/webhook
-X-Site-Availability-Secret: <SITE_AVAILABILITY_WEBHOOK_SECRET>
-Content-Type: application/json
+Cloudflare Worker ──checks──> https://<cloudpub-domain>/
+                  └checks──> https://<cloudpub-domain>/api/v1/system/availability
+                  └DOWN────> owner Telegram chat
+                  └UP──────> protected Owoke endpoint ──> all linked Telegram users
 ```
 
-Use this UptimeRobot custom JSON body (the service intentionally accepts its
-native Unix timestamp):
+`UptimeRobot` can remain as an independent email/dashboard monitor, but its
+current Free plan cannot send Telegram or webhook integrations, so it is not
+part of the bot-alert flow.
 
-```json
-{
-  "monitorId": "*monitorID*",
-  "status": "*alertTypeFriendlyName*",
-  "occurredAt": *alertDateTime*
-}
-```
+#### One-time Cloudflare setup
 
-Set the monitor IDs and secret in the ignored environment file:
+1. Create a free Cloudflare account. In PowerShell run:
 
-```dotenv
-SITE_AVAILABILITY_ENABLED=true
-SITE_AVAILABILITY_WEBHOOK_SECRET=<long-random-secret>
-SITE_AVAILABILITY_FRONTEND_MONITOR_ID=<frontend-monitor-id>
-SITE_AVAILABILITY_API_MONITOR_ID=<api-monitor-id>
-```
+   ```powershell
+   cd infra/cloudflare/site-availability-worker
+   npm install
+   npx wrangler login
+   ```
 
-`DOWN` is sent directly by UptimeRobot only to the owner. Once both monitors
-recover, For my L sends one Telegram message to every user with an active bot
-link and Telegram notifications enabled. Repeated callbacks do not create
-duplicates, and status notifications never fall back to email.
+2. Find the Telegram chat ID of **your own** linked account locally. Do not
+   share it or any secret publicly:
+
+   ```powershell
+   docker compose -f ../../compose.yaml exec notification-postgres `
+     psql -U owoke_notification -d owoke_notification `
+     -c "SELECT display_name, telegram_chat_id FROM contact_projections WHERE telegram_chat_id IS NOT NULL;"
+   ```
+
+3. Add each value to Cloudflare as a Worker secret. The three URLs must use the
+   current public CloudPub address. `RECOVERY_WEBHOOK_SECRET` is a random value
+   which must be identical to `SITE_AVAILABILITY_WEBHOOK_SECRET` in `.env.local`:
+
+   ```powershell
+   npx wrangler secret put TELEGRAM_BOT_TOKEN
+   npx wrangler secret put OWNER_TELEGRAM_CHAT_ID
+   npx wrangler secret put FRONTEND_URL
+   npx wrangler secret put API_AVAILABILITY_URL
+   npx wrangler secret put RECOVERY_WEBHOOK_URL
+   npx wrangler secret put RECOVERY_WEBHOOK_SECRET
+   ```
+
+   Enter these values when prompted:
+
+   ```text
+   FRONTEND_URL=https://<cloudpub-domain>/
+   API_AVAILABILITY_URL=https://<cloudpub-domain>/api/v1/system/availability
+   RECOVERY_WEBHOOK_URL=https://<cloudpub-domain>/api/v1/site-availability/recoveries
+   ```
+
+4. In the ignored `.env.local` set the matching two variables and restart the
+   local stack:
+
+   ```dotenv
+   SITE_AVAILABILITY_ENABLED=true
+   SITE_AVAILABILITY_WEBHOOK_SECRET=<same-random-value-as-in-Cloudflare>
+   ```
+
+   ```powershell
+   cd ../../..
+   .\dev.cmd restart
+   ```
+
+5. Deploy the Worker:
+
+   ```powershell
+   cd infra/cloudflare/site-availability-worker
+   npx wrangler deploy
+   ```
+
+The cron schedule is `*/5 * * * *` (UTC). Wait for two checks after the
+deployment or recovery. Test it locally with `npm test`; Cloudflare also lets
+you run `npx wrangler dev` and call
+`http://localhost:8787/cdn-cgi/handler/scheduled` to exercise the scheduled
+handler without waiting for cron.
+
+The bot token is deliberately stored only as a Cloudflare secret and in the
+ignored local environment file. It must never be committed. The application
+only accepts recovery messages carrying the matching secret; repeated retries
+with the same incident ID create no duplicate Telegram delivery and never fall
+back to email.
 
 The bundled single-node Kafka listener is private to the one-host Docker network.
 When Kafka moves off-host or to a managed cluster, set the clients and broker to

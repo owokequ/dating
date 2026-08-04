@@ -1,0 +1,7 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-remove-site-availability-state
+      author: codex
+      changes:
+        - dropTable:
+            tableName: site_availability_states

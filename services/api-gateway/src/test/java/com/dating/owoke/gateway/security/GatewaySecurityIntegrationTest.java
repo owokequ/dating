@@ -108,10 +108,10 @@ class GatewaySecurityIntegrationTest {
     }
 
     @Test
-    void siteAvailabilityWebhookUsesThePublicCsrfExemptRoute() throws Exception {
-        mockMvc.perform(post("/api/v1/site-availability/webhook")
+    void siteAvailabilityRecoveryUsesThePublicCsrfExemptRoute() throws Exception {
+        mockMvc.perform(post("/api/v1/site-availability/recoveries")
                         .contentType("application/json")
-                        .content("{\"monitorId\":\"frontend\",\"status\":\"UP\",\"occurredAt\":\"2026-08-04T00:00:00Z\"}"))
+                        .content("{\"incidentId\":\"00000000-0000-0000-0000-000000000001\"}"))
                 .andExpect(status().isNoContent());
     }
 
@@ -123,7 +123,7 @@ class GatewaySecurityIntegrationTest {
                 exchange.sendResponseHeaders(204, -1);
                 exchange.close();
             });
-            server.createContext("/api/v1/site-availability/webhook", exchange -> {
+            server.createContext("/api/v1/site-availability/recoveries", exchange -> {
                 exchange.getRequestBody().readAllBytes();
                 exchange.sendResponseHeaders(204, -1);
                 exchange.close();

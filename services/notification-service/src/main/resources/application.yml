@@ -65,8 +65,6 @@ owoke:
   site-availability:
     enabled: ${SITE_AVAILABILITY_ENABLED:false}
     webhook-secret: ${SITE_AVAILABILITY_WEBHOOK_SECRET:}
-    frontend-monitor-id: ${SITE_AVAILABILITY_FRONTEND_MONITOR_ID:}
-    api-monitor-id: ${SITE_AVAILABILITY_API_MONITOR_ID:}
   telegram:
     enabled: ${TELEGRAM_BOT_ENABLED:false}
     mode: ${TELEGRAM_BOT_MODE:webhook}
