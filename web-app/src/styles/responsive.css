@@ -28,16 +28,22 @@
     height: 68px;
     padding: 7px 70px 7px 8px;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     border: 1px solid rgba(255,255,255,.75);
     border-radius: 24px;
     background: rgba(63,38,49,.94);
     box-shadow: 0 18px 50px rgba(63,38,49,.26);
     backdrop-filter: blur(18px);
   }
-  .mobile-nav > a:not(.mobile-nav-create) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .22rem; border-radius: 15px; color: #d8c5cd; font-size: .58rem; font-weight: 700; }
-  .mobile-nav > a.active { background: rgba(255,255,255,.1); color: white; }
+  .mobile-nav > a:not(.mobile-nav-create), .mobile-more > summary { display: flex; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: .22rem; border-radius: 15px; color: #d8c5cd; font-size: .58rem; font-weight: 700; }
+  .mobile-nav > a.active, .mobile-more[open] > summary { background: rgba(255,255,255,.1); color: white; }
   .mobile-nav-create { position: absolute; right: 10px; top: 8px; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--petal); color: white; box-shadow: 0 8px 22px rgba(242,120,154,.35); }
+  .mobile-more { display: block; min-width: 0; }
+  .mobile-more > summary { list-style: none; cursor: pointer; }
+  .mobile-more > summary::-webkit-details-marker { display: none; }
+  .mobile-more-panel { position: absolute; right: 0; bottom: 76px; width: min(252px, calc(100vw - 24px)); padding: .5rem; display: grid; gap: .2rem; border: 1px solid var(--line); border-radius: 20px; background: var(--surface-translucent); box-shadow: var(--shadow); }
+  .mobile-more-panel a, .mobile-more-panel button { width: 100%; min-height: 44px; padding: .7rem .8rem; display: flex; align-items: center; justify-content: flex-start; gap: .7rem; border-radius: 13px; background: transparent; color: var(--plum); box-shadow: none; font-size: .86rem; font-weight: 750; text-align: left; }
+  .mobile-more-panel a:hover, .mobile-more-panel button:hover { background: var(--rose-mist); color: var(--cherry-deep); box-shadow: none; transform: none; }
   h1 { font-size: clamp(2.75rem, 15vw, 4.3rem); }
   .page-title { margin-bottom: 2rem; }
   .page-title h1 { font-size: clamp(2.7rem, 14vw, 4.1rem); }
@@ -50,6 +56,7 @@
   .quick-actions { gap: .65rem; }
   .quick-actions a { min-height: 88px; }
   .catalog-heading { gap: .75rem; }
+  .catalog-heading .page-title, .dashboard-intro .page-title { min-width: 0; }
   .catalog-count { min-width: 64px; font-size: 3rem; }
   .catalog-count small { display: none; }
   .catalog-mark { width: 66px; height: 66px; flex: 0 0 auto; font-size: 2.2rem; }
@@ -74,17 +81,32 @@
   .place-story-panel, .event-story-panel { position: static; }
   .place-detail-overlay { bottom: 1.7rem; left: 1.4rem; }
   .place-detail-overlay h1 { font-size: 3.3rem; }
+  .place-facts { flex-direction: column; align-items: flex-start; gap: .65rem; }
   .place-gallery { grid-template-columns: 1fr; }
   .place-gallery img, .place-gallery img:first-child:nth-last-child(odd) { grid-column: auto; }
   .date-detail-cover { width: calc(100% + 2.7rem); margin: -1.35rem -1.35rem 1.4rem; }
   .form-steps { margin-top: -.4rem; font-size: .56rem; }
+  .private-date-link { width: 100%; margin: -.5rem 0 1.15rem; }
   .date-form-step { grid-template-columns: 42px 1fr; gap: .75rem; }
   .date-form-step::before { left: 20px; }
   .step-number { width: 40px; height: 40px; }
   dl > div { grid-template-columns: 1fr; gap: .25rem; }
   .auth-links { flex-direction: column; }
+  .occurrence-row { align-items: stretch; flex-direction: column; }
+  .occurrence-row > div { min-width: 0; }
+  .occurrence-row .button { width: 100%; }
+  .pagination { flex-wrap: wrap; gap: .6rem; }
+  .admin-place-summary, .media-manager-heading, .place-image-picker-heading { align-items: flex-start; flex-direction: column; }
+  .media-manager-heading > button, .place-image-picker-heading > button { width: 100%; }
   .admin-sync-panel > .message, .admin-sync-panel > .sync-result, .admin-provider-note { grid-column: auto; }
   .media-admin-grid, .place-image-preview-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .site-header { gap: .4rem; }
+  .brand-copy { display: none; }
+  .desktop-nav { gap: .2rem; }
+  .nav-cta { padding: .48rem .6rem; font-size: .71rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,0 +1,190 @@
+/* Decorative motion is intentionally limited to opacity and transforms. */
+@media (prefers-reduced-motion: no-preference) {
+  .site-header { animation: header-arrive 560ms var(--ease) both; }
+  .brand-mark { animation: mark-arrive 680ms var(--ease) both; }
+
+  main > section.auth-card,
+  main > section.form-page { animation: content-arrive var(--motion-slow) var(--ease) both; }
+
+  main > section > .page-title,
+  main > section > .dashboard-intro,
+  main > section > .catalog-heading,
+  main > section > .hero,
+  main > section > .form-page,
+  main > section > .place-details,
+  main > section > .auth-card,
+  main > section > .panel,
+  main > section > .settings-grid,
+  main > section > .notification-list,
+  main > section > .admin-grid,
+  main > section > .admin-sync-panel,
+  main > section > .admin-event-list {
+    animation: content-arrive var(--motion-slow) var(--ease) both;
+  }
+
+  main > section > :nth-child(2) { animation-delay: 80ms; }
+  main > section > :nth-child(3) { animation-delay: 140ms; }
+
+  .hero > div:first-child { animation: content-arrive 760ms var(--ease) 80ms both; }
+  .hero-card { animation: card-arrive 900ms var(--ease) 180ms both; }
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    width: 13rem;
+    height: 13rem;
+    top: -4rem;
+    right: -3rem;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 202, 219, .22), transparent 68%);
+    animation: aurora-drift 8s ease-in-out infinite alternate;
+  }
+  .hero-card > * { position: relative; z-index: 1; }
+
+  .pulse { position: relative; isolation: isolate; }
+  .pulse::before {
+    content: '';
+    width: .48rem;
+    height: .48rem;
+    margin-right: .42rem;
+    display: inline-block;
+    border-radius: 50%;
+    background: #d8eacc;
+    box-shadow: 0 0 0 0 rgba(216, 234, 204, .56);
+    animation: status-ping 2.4s ease-out infinite;
+  }
+
+  .love-seal { animation: seal-float 4.8s ease-in-out infinite; }
+  .quick-actions a,
+  .date-list > *,
+  .card-grid > *,
+  .member-grid > *,
+  .notification-list > *,
+  .admin-place-item,
+  .admin-event-item {
+    animation: card-arrive 680ms var(--ease) both;
+  }
+  .quick-actions a:nth-child(2), .date-list > :nth-child(2), .card-grid > :nth-child(2), .member-grid > :nth-child(2) { animation-delay: 70ms; }
+  .quick-actions a:nth-child(3), .date-list > :nth-child(3), .card-grid > :nth-child(3) { animation-delay: 120ms; }
+  .quick-actions a:nth-child(4), .card-grid > :nth-child(4) { animation-delay: 170ms; }
+
+  .quick-actions a { position: relative; overflow: hidden; }
+  .quick-actions a::after {
+    content: '';
+    position: absolute;
+    inset: auto -25% -55% auto;
+    width: 8rem;
+    height: 8rem;
+    border-radius: 50%;
+    background: rgba(242, 120, 154, .11);
+    transform: translate3d(20%, 20%, 0);
+    transition: transform var(--motion-slow) var(--ease), background var(--motion) ease;
+  }
+  .quick-actions a > * { position: relative; z-index: 1; }
+  .quick-actions a:hover::after { background: rgba(242, 120, 154, .18); transform: translate3d(-18%, -18%, 0); }
+  .quick-actions a:hover svg { transform: translate3d(2px, -3px, 0) rotate(-6deg); }
+  .quick-actions a svg { transition: transform var(--motion) var(--ease); }
+
+  .date-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .26) 49%, transparent 62%);
+    transform: translate3d(-130%, 0, 0);
+    transition: transform 820ms var(--ease);
+  }
+  .date-card:hover::after { transform: translate3d(130%, 0, 0); }
+  .place-card:hover .place-cover img { transform: scale(1.065); }
+
+  .nav-primary a, .icon-link, .round-link { transition-duration: var(--motion-fast); }
+  .mobile-nav > a.active svg, .mobile-more[open] > summary svg { animation: nav-pop 420ms var(--ease) both; }
+  .mobile-nav-create::before {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border: 1px solid rgba(242, 120, 154, .45);
+    border-radius: inherit;
+    animation: create-ring 2.8s ease-out infinite;
+  }
+
+  .mobile-more-panel { transform-origin: right bottom; animation: menu-arrive 220ms var(--ease) both; }
+}
+
+@keyframes header-arrive {
+  from { opacity: 0; transform: translate3d(0, -10px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes mark-arrive {
+  from { opacity: 0; transform: translate3d(-8px, -4px, 0) rotate(-16deg) scale(.82); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) rotate(-5deg) scale(1); }
+}
+
+@keyframes content-arrive {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes card-arrive {
+  from { opacity: 0; transform: translate3d(0, 22px, 0) scale(.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes aurora-drift {
+  from { transform: translate3d(-8%, -3%, 0) scale(.92); }
+  to { transform: translate3d(12%, 14%, 0) scale(1.12); }
+}
+
+@keyframes status-ping {
+  0%, 25% { box-shadow: 0 0 0 0 rgba(216, 234, 204, .52); }
+  48%, 100% { box-shadow: 0 0 0 .55rem rgba(216, 234, 204, 0); }
+}
+
+@keyframes seal-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(7deg); }
+  50% { transform: translate3d(0, -7px, 0) rotate(3deg); }
+}
+
+@keyframes nav-pop {
+  0% { transform: scale(.78); }
+  70% { transform: scale(1.13); }
+  100% { transform: scale(1); }
+}
+
+@keyframes create-ring {
+  0%, 22% { opacity: .85; transform: scale(.9); }
+  62%, 100% { opacity: 0; transform: scale(1.22); }
+}
+
+@keyframes menu-arrive {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.97); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@media (max-width: 680px) and (prefers-reduced-motion: no-preference) {
+  main > section > .page-title,
+  main > section > .dashboard-intro,
+  main > section > .catalog-heading,
+  main > section > .hero,
+  main > section > .form-page,
+  main > section > .place-details,
+  main > section > .auth-card,
+  main > section > .panel,
+  main > section > .settings-grid,
+  main > section > .notification-list,
+  main > section > .admin-grid,
+  main > section > .admin-sync-panel,
+  main > section > .admin-event-list { animation-duration: 560ms; }
+
+  .quick-actions a,
+  .date-list > *,
+  .card-grid > *,
+  .member-grid > *,
+  .notification-list > *,
+  .admin-place-item,
+  .admin-event-item { animation-duration: 480ms; }
+
+  .quick-actions a::after, .date-card::after { display: none; }
+  .love-seal { animation-duration: 6s; }
+}

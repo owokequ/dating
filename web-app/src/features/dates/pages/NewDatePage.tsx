@@ -1,5 +1,6 @@
+import { ImagePlus } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ErrorMessage, Loading, PageTitle } from '../../../shared/ui/Feedback'
 import { toMoscowIso, toMoscowLocalInput } from '../../../shared/lib/date'
 import { getPlaces } from '../../places/api/placesApi'
@@ -10,10 +11,14 @@ export function NewDatePage() {
   const initialPlace = new URLSearchParams(window.location.search).get('placeId') ?? ''
   const initialEvent = new URLSearchParams(window.location.search).get('eventId') ?? ''
   const initialOccurrence = new URLSearchParams(window.location.search).get('eventOccurrenceId') ?? ''
+  const shouldUsePrivatePlace = !initialPlace && !initialEvent
+  useEffect(() => {
+    if (shouldUsePrivatePlace) window.location.replace('/dates/new/private-place')
+  }, [shouldUsePrivatePlace])
   const [placeId, setPlaceId] = useState(initialPlace)
   const [scheduledAt, setScheduledAt] = useState('')
   const [description, setDescription] = useState('')
-  const places = useQuery({ queryKey: ['places', 'date-form'], queryFn: () => getPlaces() })
+  const places = useQuery({ queryKey: ['places', 'date-form'], queryFn: () => getPlaces(), enabled: !shouldUsePrivatePlace })
   const selectedEvent = useQuery({
     queryKey: ['event', initialEvent],
     queryFn: () => getEvent(initialEvent),
@@ -31,11 +36,12 @@ export function NewDatePage() {
       : createDate({ scheduledAt: toMoscowIso(scheduledAt), placeId, description: description || undefined }),
     onSuccess: (proposal) => window.location.assign(`/dates/${proposal.id}`),
   })
-  if (places.isLoading || selectedEvent.isLoading) return <Loading />
+  if (shouldUsePrivatePlace || places.isLoading || selectedEvent.isLoading) return <Loading />
 
   return (
     <section className="form-page">
       <PageTitle eyebrow="Новая страница" title={eventMode ? 'Позвать на событие' : 'Оставить приглашение'}>Соберите красивый план — ваш человек получит его и сможет ответить.</PageTitle>
+      <a className="button secondary private-date-link" href="/dates/new/private-place"><ImagePlus size={18} /> Добавить своё место и фотографию</a>
       <form className="panel date-proposal-form" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
         <div className="form-steps" aria-label="Шаги предложения"><span className="active">1 · идея</span><span>2 · время</span><span>3 · записка</span></div>
         <section className="date-form-step"><span className="step-number">01</span><div className="step-content">{eventMode && selectedEvent.data ? <div className="selected-event-summary">

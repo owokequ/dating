@@ -1,6 +1,7 @@
 import { Outlet, useRouterState } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bell, CalendarHeart, Compass, Heart, LogOut, MapPin, Settings, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { Bell, CalendarHeart, Compass, Heart, LogOut, MapPin, Moon, MoreHorizontal, Settings, Sparkles, Sun } from 'lucide-react'
 import { logout, useSession } from '../../features/auth/api/authApi'
 import { OnboardingOverlay } from '../../features/onboarding/ui/OnboardingOverlay'
 
@@ -15,6 +16,7 @@ export function AppLayout() {
   const session = useSession()
   const queryClient = useQueryClient()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light')
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSuccess: async () => {
@@ -24,6 +26,13 @@ export function AppLayout() {
   })
 
   const active = (href: string) => pathname === href || (href !== '/dashboard' && pathname.startsWith(`${href}/`))
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = nextTheme
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', nextTheme === 'dark' ? '#21171d' : '#fff4f7')
+    localStorage.setItem('owoke-theme', nextTheme)
+    setTheme(nextTheme)
+  }
 
   return (
     <div className="app-shell">
@@ -33,6 +42,15 @@ export function AppLayout() {
           <span className="brand-copy"><strong>For my L</strong><small>наше место</small></span>
         </a>
         <nav className="desktop-nav" aria-label="Основная навигация">
+          <button
+            className="icon-link link-button theme-toggle"
+            type="button"
+            aria-label={theme === 'dark' ? 'Enable light mode' : 'Enable dark mode'}
+            aria-pressed={theme === 'dark'}
+            onClick={toggleTheme}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           {session.data ? (
             <>
               <div className="nav-primary">
@@ -68,6 +86,18 @@ export function AppLayout() {
               <span>{label}</span>
             </a>
           ))}
+          <details className="mobile-more">
+            <summary aria-label="Ещё разделы">
+              <MoreHorizontal size={21} />
+              <span>Ещё</span>
+            </summary>
+            <div className="mobile-more-panel">
+              <a href="/notifications"><Bell size={18} />Уведомления</a>
+              <a href="/settings"><Settings size={18} />Настройки</a>
+              {session.data.role === 'ADMIN' && <a href="/admin/places"><Compass size={18} />Управление</a>}
+              <button type="button" onClick={() => logoutMutation.mutate()}><LogOut size={18} />Выйти</button>
+            </div>
+          </details>
           <a className="mobile-nav-create" href="/dates/new" aria-label="Предложить свидание"><Compass size={22} /></a>
         </nav>
       )}
