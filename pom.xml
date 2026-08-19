@@ -35,7 +35,7 @@
         <archunit.version>1.4.2</archunit.version>
         <aws-sdk.version>2.48.0</aws-sdk.version>
         <thumbnailator.version>0.4.21</thumbnailator.version>
-        <twelvemonkeys.version>3.13.1</twelvemonkeys.version>
+        <twelvemonkeys.version>3.14.0</twelvemonkeys.version>
     </properties>
 
     <dependencies>
