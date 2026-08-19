@@ -10,6 +10,7 @@ public record TelegramOidcProperties(
         String clientSecret,
         String botUsername,
         String redirectUri,
+        String mobileRedirectUri,
         String authorizationUri,
         String tokenUri,
         String jwkSetUri,

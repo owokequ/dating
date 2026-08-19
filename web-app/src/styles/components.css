@@ -28,20 +28,11 @@
 }
 .brand { display: inline-flex; align-items: center; gap: .75rem; }
 .brand-mark {
-  position: relative;
   width: 43px;
   height: 43px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, .72);
-  border-radius: 50% 45% 48% 44%;
-  background: var(--cherry);
-  color: white;
-  font: italic 700 1.55rem/1 var(--font-display);
-  box-shadow: 0 6px 18px rgba(165, 44, 82, .22);
+  display: block;
   transform: rotate(-5deg);
 }
-.brand-mark::after { content: ''; position: absolute; inset: 4px; border: 1px solid rgba(255,255,255,.45); border-radius: inherit; }
 .brand-copy { display: grid; line-height: 1; }
 .brand-copy strong { font: 600 1.55rem/1 var(--font-display); letter-spacing: -.025em; }
 .brand-copy small { margin-top: .3rem; font-size: .58rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }

@@ -62,6 +62,14 @@ public class TelegramOidcService {
     }
 
     public URI authorizationUri(String requestedContinuePath) {
+        return authorizationUri(requestedContinuePath, false);
+    }
+
+    public URI mobileAuthorizationUri() {
+        return authorizationUri("/dashboard", true);
+    }
+
+    private URI authorizationUri(String requestedContinuePath, boolean mobile) {
         ensureConfigured();
         String state = tokenGenerator.generate();
         String nonce = tokenGenerator.generate();
@@ -69,7 +77,8 @@ public class TelegramOidcService {
         TelegramOidcState storedState = new TelegramOidcState(
                 verifier,
                 nonce,
-                sanitizeContinuePath(requestedContinuePath));
+                sanitizeContinuePath(requestedContinuePath),
+                mobile);
         try {
             redisTemplate.opsForValue().set(
                     STATE_PREFIX + tokenGenerator.hash(state),
@@ -121,7 +130,8 @@ public class TelegramOidcService {
         return new TelegramOidcResult(
                 identityService.authenticate(new TelegramProfile(
                         subject, telegramUserId, displayName, username, botAccess)),
-                storedState.continuePath());
+                storedState.continuePath(),
+                storedState.mobile());
     }
 
     private Map<String, Object> exchangeCode(String code, String verifier) {

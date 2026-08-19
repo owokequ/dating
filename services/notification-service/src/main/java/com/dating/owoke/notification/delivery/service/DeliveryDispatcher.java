@@ -14,6 +14,12 @@ import com.dating.owoke.notification.telegram.service.TelegramCardFormatter;
 import com.dating.owoke.notification.telegram.service.TelegramDateCardService;
 import com.dating.owoke.notification.telegram.service.TelegramMediaService;
 import com.dating.owoke.notification.telegram.service.TelegramPhotoResult;
+import com.dating.owoke.notification.push.service.ExpoPushClient;
+import com.dating.owoke.notification.push.service.MobileDeviceService;
+import com.dating.owoke.notification.push.configuration.ExpoPushProperties;
+import com.dating.owoke.notification.push.service.PushMetrics;
+import com.dating.owoke.notification.push.service.ExpoPushException;
+import java.util.Map;
 
 @Component
 @ConditionalOnProperty(prefix = "owoke.delivery", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -25,6 +31,10 @@ public class DeliveryDispatcher {
     private final TelegramCardFormatter telegramCardFormatter;
     private final TelegramDateCardService telegramDateCardService;
     private final EmailClient emailClient;
+    private final ExpoPushClient expoPushClient;
+    private final MobileDeviceService mobileDeviceService;
+    private final ExpoPushProperties expoPushProperties;
+    private final PushMetrics pushMetrics;
 
     public DeliveryDispatcher(
             DeliveryService deliveryService,
@@ -32,20 +42,26 @@ public class DeliveryDispatcher {
             TelegramMediaService telegramMediaService,
             TelegramCardFormatter telegramCardFormatter,
             TelegramDateCardService telegramDateCardService,
-            EmailClient emailClient) {
+            EmailClient emailClient, ExpoPushClient expoPushClient, MobileDeviceService mobileDeviceService,
+            ExpoPushProperties expoPushProperties, PushMetrics pushMetrics) {
         this.deliveryService = deliveryService;
         this.telegramClient = telegramClient;
         this.telegramMediaService = telegramMediaService;
         this.telegramCardFormatter = telegramCardFormatter;
         this.telegramDateCardService = telegramDateCardService;
         this.emailClient = emailClient;
+        this.expoPushClient = expoPushClient; this.mobileDeviceService = mobileDeviceService;
+        this.expoPushProperties = expoPushProperties;
+        this.pushMetrics = pushMetrics;
     }
 
     @Scheduled(fixedDelayString = "${owoke.notification.delivery-fixed-delay:1000}")
     public void dispatch() {
-        for (DeliveryTask task : deliveryService.claim()) {
+        List<DeliveryTask> tasks = deliveryService.claim();
+        for (DeliveryTask task : tasks.stream().filter(task -> task.channel() != com.dating.owoke.notification.delivery.domain.DeliveryChannel.PUSH).toList()) {
             deliver(task);
         }
+        deliverPush(tasks.stream().filter(task -> task.channel() == com.dating.owoke.notification.delivery.domain.DeliveryChannel.PUSH).toList());
     }
 
     private void deliver(DeliveryTask task) {
@@ -57,12 +73,51 @@ public class DeliveryDispatcher {
                         task.title(),
                         task.body(),
                         task.actionUrl());
+                case PUSH -> throw new IllegalStateException("Push deliveries are batched");
             };
             deliveryService.markSent(task, providerMessageId);
         } catch (Exception exception) {
             deliveryService.markFailed(task, exception);
         }
     }
+
+    private void deliverPush(List<DeliveryTask> tasks) {
+        if (tasks.isEmpty()) return;
+        if (!expoPushProperties.enabled()) {
+            tasks.forEach(task -> deliveryService.markFailed(task, new IllegalStateException("Expo push is disabled")));
+            return;
+        }
+        try {
+            List<ExpoPushClient.ExpoTicket> tickets = expoPushClient.send(tasks.stream().map(this::message).toList());
+            if (tickets.size() != tasks.size()) throw new IllegalStateException("Expo returned an incomplete ticket batch");
+            for (int i = 0; i < tasks.size(); i++) {
+                DeliveryTask task = tasks.get(i); ExpoPushClient.ExpoTicket ticket = tickets.get(i);
+                if ("ok".equals(ticket.status()) && ticket.id() != null) { deliveryService.markPushAccepted(task, ticket.id()); pushMetrics.sent(); }
+                else if ("DeviceNotRegistered".equals(ticket.error())) { mobileDeviceService.deactivate(task.destination()); deliveryService.markPushDeviceDisabled(task, ticket.error()); pushMetrics.deviceDisabled(); }
+                else { deliveryService.markFailed(task, new IllegalStateException(ticket.error() == null ? "Expo rejected push" : ticket.error())); pushMetrics.retry(); }
+            }
+        } catch (ExpoPushException exception) {
+            tasks.forEach(task -> {
+                if (exception.retryable()) { deliveryService.markFailed(task, exception); pushMetrics.retry(); }
+                else { deliveryService.markPushPermanentlyFailed(task, exception.getMessage()); pushMetrics.permanentFailure(); }
+            });
+        } catch (Exception exception) { tasks.forEach(task -> { deliveryService.markFailed(task, exception); pushMetrics.retry(); }); }
+    }
+
+    private ExpoPushClient.ExpoMessage message(DeliveryTask task) {
+        String route = allowedRoute(task.notificationType());
+        Map<String, String> data = new java.util.LinkedHashMap<>(); data.put("route", route);
+        if (task.referenceId() != null) data.put("referenceId", task.referenceId().toString());
+        if (task.contextId() != null) data.put("contextId", task.contextId().toString());
+        String channel = route.equals("date") ? "dates" : route.equals("reminder") ? "reminders" : "general";
+        return new ExpoPushClient.ExpoMessage(task.destination(), "For my L", shortText(route), "default", channel, data);
+    }
+    private static String allowedRoute(String type) {
+        if (type.startsWith("DATE_PROPOSAL_")) return "date";
+        if (type.startsWith("REMINDER_")) return "reminder";
+        return "notifications";
+    }
+    private static String shortText(String route) { return switch (route) { case "date" -> "Новое обновление свидания"; case "reminder" -> "Напоминание"; default -> "Новое уведомление"; }; }
 
     private String deliverTelegram(DeliveryTask task) {
         long chatId = required(task.telegramChatId(), "Telegram chat is not linked");

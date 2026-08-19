@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="For my L">
+  <defs>
+    <linearGradient id="rose" x1="18" y1="12" x2="110" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffb4ca"/>
+      <stop offset=".46" stop-color="#f55f91"/>
+      <stop offset="1" stop-color="#b8235b"/>
+    </linearGradient>
+    <radialGradient id="shine" cx=".3" cy=".18" r=".72">
+      <stop stop-color="#fff" stop-opacity=".68"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#7d1f3d" flood-opacity=".35"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <circle cx="64" cy="64" r="58" fill="url(#rose)"/>
+    <circle cx="64" cy="64" r="49" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2"/>
+    <circle cx="64" cy="64" r="43" fill="url(#shine)"/>
+    <path d="M64 103c-3-9-17-17-17-29 0-7 5-12 12-12 3 0 5 1 7 4 2-3 5-4 8-4 7 0 12 5 12 12 0 12-14 20-22 29Z" fill="#fff" fill-opacity=".19"/>
+    <text x="63" y="79" fill="#fff7fa" font-family="Georgia, serif" font-size="64" font-style="italic" text-anchor="middle">L</text>
+  </g>
+</svg>

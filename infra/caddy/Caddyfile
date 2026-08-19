@@ -5,6 +5,11 @@
         reverse_proxy api-gateway:8080
     }
 
+    handle /.well-known/assetlinks.json {
+        root * /srv
+        file_server
+    }
+
     handle /.well-known/* {
         reverse_proxy api-gateway:8080
     }
@@ -21,7 +26,7 @@
         X-Frame-Options "DENY"
         Referrer-Policy "strict-origin-when-cross-origin"
         Permissions-Policy "camera=(), microphone=(), geolocation=()"
-        Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data: https://kudago.com https://*.kudago.com; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data: https://kudago.com https://*.kudago.com; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         -Server
     }
 }

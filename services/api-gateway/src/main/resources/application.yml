@@ -23,7 +23,7 @@ spring:
             - id: notification-service
               uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
               predicates:
-                - Path=/api/v1/notifications/**,/api/v1/telegram/webhook,/api/v1/site-availability/**
+                - Path=/api/v1/notifications/**,/api/v1/notification-preferences/**,/api/v1/mobile/devices/**,/api/v1/telegram/webhook,/api/v1/site-availability/**
             - id: places-service
               uri: ${PLACES_SERVICE_URL:http://localhost:8084}
               predicates:

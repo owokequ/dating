@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -60,7 +61,12 @@ public class GatewaySecurityConfiguration {
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                         .ignoringRequestMatchers(
                                 "/api/v1/telegram/webhook",
-                                "/api/v1/site-availability/**"))
+                                "/api/v1/site-availability/**",
+                                "/api/v1/auth/mobile/**")
+                        .ignoringRequestMatchers(request -> {
+                                    String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+                                    return authorization != null && authorization.startsWith("Bearer ");
+                                }))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers("/.well-known/jwks.json", "/api/v1/security/csrf").permitAll()
@@ -104,7 +110,8 @@ public class GatewaySecurityConfiguration {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(properties.webAppOrigin()));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN", "Idempotency-Key"));
+        configuration.setAllowedHeaders(List.of(
+                "Content-Type", "X-XSRF-TOKEN", "Idempotency-Key", "Authorization"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

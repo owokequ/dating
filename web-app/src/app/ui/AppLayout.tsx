@@ -38,7 +38,7 @@ export function AppLayout() {
     <div className="app-shell">
       <header className="site-header">
         <a className="brand" href="/dashboard" aria-label="For my L — на главную">
-          <span className="brand-mark" aria-hidden="true">L</span>
+          <img className="brand-mark" src="/brand-mark.svg" alt="" />
           <span className="brand-copy"><strong>For my L</strong><small>наше место</small></span>
         </a>
         <nav className="desktop-nav" aria-label="Основная навигация">

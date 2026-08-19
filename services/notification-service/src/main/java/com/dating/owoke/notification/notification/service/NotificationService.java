@@ -18,6 +18,7 @@ import com.dating.owoke.notification.notification.exception.NotificationNotFound
 import com.dating.owoke.notification.notification.repository.NotificationRepository;
 import com.dating.owoke.notification.preference.domain.NotificationPreference;
 import com.dating.owoke.notification.preference.repository.NotificationPreferenceRepository;
+import com.dating.owoke.notification.push.repository.MobileDeviceRepository;
 
 @Service
 public class NotificationService {
@@ -27,17 +28,20 @@ public class NotificationService {
     private final ContactProjectionService contactService;
     private final NotificationPreferenceRepository preferenceRepository;
     private final Clock clock;
+    private final MobileDeviceRepository deviceRepository;
 
     public NotificationService(
             NotificationRepository notificationRepository,
             DeliveryAttemptRepository deliveryRepository,
             ContactProjectionService contactService,
             NotificationPreferenceRepository preferenceRepository,
+            MobileDeviceRepository deviceRepository,
             Clock clock) {
         this.notificationRepository = notificationRepository;
         this.deliveryRepository = deliveryRepository;
         this.contactService = contactService;
         this.preferenceRepository = preferenceRepository;
+        this.deviceRepository = deviceRepository;
         this.clock = clock;
     }
 
@@ -92,10 +96,7 @@ public class NotificationService {
                         sourceEventId, userId, type, title, body, actionUrl,
                         referenceId, contextId, mediaId, clock.instant()));
 
-        DeliveryChannel channel = selectChannel(contact, preference);
-        if (channel != null) {
-            deliveryRepository.save(new DeliveryAttempt(notification.getId(), channel, clock.instant()));
-        }
+        createDeliveryAttempts(notification, contact, preference);
         return notification;
     }
 
@@ -161,13 +162,19 @@ public class NotificationService {
         notification.markRead(clock.instant());
     }
 
-    private DeliveryChannel selectChannel(ContactProjection contact, NotificationPreference preference) {
+    private void createDeliveryAttempts(Notification notification, ContactProjection contact, NotificationPreference preference) {
         if (preference.isTelegramEnabled() && contact.hasBotAccess() && contact.getTelegramChatId() != null) {
-            return DeliveryChannel.TELEGRAM;
+            deliveryRepository.save(new DeliveryAttempt(notification.getId(), DeliveryChannel.TELEGRAM,
+                    contact.getTelegramChatId().toString(), clock.instant()));
         }
         if (preference.isEmailEnabled() && contact.getEmail() != null) {
-            return DeliveryChannel.EMAIL;
+            deliveryRepository.save(new DeliveryAttempt(notification.getId(), DeliveryChannel.EMAIL,
+                    contact.getEmail(), clock.instant()));
         }
-        return null;
+        if (preference.isPushEnabled()) {
+            deviceRepository.findByUserIdAndActiveTrue(notification.getUserId()).forEach(device ->
+                    deliveryRepository.save(new DeliveryAttempt(notification.getId(), DeliveryChannel.PUSH,
+                            device.getExpoPushToken(), clock.instant())));
+        }
     }
 }

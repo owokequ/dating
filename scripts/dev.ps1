@@ -21,6 +21,8 @@ $script:ComposeBase = Join-Path $script:Root "infra\compose.yaml"
 $script:ComposeFull = Join-Path $script:Root "infra\compose.full.yaml"
 $script:MavenWrapper = Join-Path $script:Root "mvnw.cmd"
 $script:WebDirectory = Join-Path $script:Root "web-app"
+$script:MobileDirectory = Join-Path $script:Root "mobile-app"
+$script:MobileExpoPort = 19000
 
 $script:BackendServices = @(
     [pscustomobject]@{ Name = "identity-service"; Module = "identity-service"; Port = 8081; Color = "Cyan" },
@@ -39,7 +41,8 @@ $script:ManagedNames = @(
     "media-service",
     "events-service",
     "api-gateway",
-    "web-app"
+    "web-app",
+    "mobile-app"
 )
 
 function Write-DevLog {
@@ -63,6 +66,9 @@ function Get-ServiceColor {
     }
     if ($Name -eq "web-app") {
         return "DarkCyan"
+    }
+    if ($Name -eq "mobile-app") {
+        return "DarkGreen"
     }
     return "Gray"
 }
@@ -247,12 +253,12 @@ function Test-PortListening {
 }
 
 function Assert-ApplicationPortsFree {
-    foreach ($port in @(5173, 8080, 8081, 8082, 8083, 8084, 8085, 8086)) {
+    foreach ($port in @(5173, $script:MobileExpoPort, 8080, 8081, 8082, 8083, 8084, 8085, 8086)) {
         if (Test-PortListening $port) {
             throw "Port $port is already occupied. Run '.\dev.cmd status' before starting Owoke."
         }
     }
-    Write-DevLog "check" "Application ports 5173 and 8080-8086 are free." "DarkGreen"
+    Write-DevLog "check" "Application ports 5173, $($script:MobileExpoPort) and 8080-8086 are free." "DarkGreen"
 }
 
 function Get-ProcessRecordPath {
@@ -306,7 +312,8 @@ function Start-ManagedProcess {
     param(
         [string] $Name,
         [string] $WorkingDirectory,
-        [string] $CommandLine
+        [string] $CommandLine,
+        [switch] $Visible
     )
 
     Ensure-RunDirectories
@@ -315,14 +322,22 @@ function Start-ManagedProcess {
     [System.IO.File]::WriteAllText($outLog, "", (New-Object System.Text.UTF8Encoding($false)))
     [System.IO.File]::WriteAllText($errorLog, "", (New-Object System.Text.UTF8Encoding($false)))
 
-    $process = Start-Process `
-            -FilePath "cmd.exe" `
-            -ArgumentList ('/d /s /c "{0}"' -f $CommandLine) `
-            -WorkingDirectory $WorkingDirectory `
-            -RedirectStandardOutput $outLog `
-            -RedirectStandardError $errorLog `
-            -WindowStyle Hidden `
-            -PassThru
+    $startParameters = @{
+        FilePath = "cmd.exe"
+        ArgumentList = ('/d /s /c "{0}"' -f $CommandLine)
+        WorkingDirectory = $WorkingDirectory
+        PassThru = $true
+    }
+    if ($Visible) {
+        # Expo's QR code is intentionally shown in a terminal: it is needed to
+        # open the project in Expo Go from a physical phone.
+        $startParameters.WindowStyle = "Normal"
+    } else {
+        $startParameters.RedirectStandardOutput = $outLog
+        $startParameters.RedirectStandardError = $errorLog
+        $startParameters.WindowStyle = "Hidden"
+    }
+    $process = Start-Process @startParameters
 
     $record = [ordered]@{
         name = $Name
@@ -347,6 +362,39 @@ function Start-BackendService {
 function Start-WebApplication {
     $commandLine = 'npm.cmd run dev -- --host 0.0.0.0'
     return Start-ManagedProcess "web-app" $script:WebDirectory $commandLine
+}
+
+function Assert-MobileEnvironment {
+    $envFile = Join-Path $script:MobileDirectory ".env.local"
+    if (-not (Test-Path -LiteralPath $envFile)) {
+        throw "mobile-app/.env.local is required. Copy mobile-app/.env.example and set EXPO_PUBLIC_API_URL to the public HTTPS API address."
+    }
+
+    $apiLine = Get-Content -LiteralPath $envFile -Encoding UTF8 |
+            Where-Object { $_ -match '^\s*EXPO_PUBLIC_API_URL\s*=' } |
+            Select-Object -First 1
+    if ([string]::IsNullOrWhiteSpace($apiLine)) {
+        throw "mobile-app/.env.local must define EXPO_PUBLIC_API_URL."
+    }
+
+    $apiUrl = ($apiLine -replace '^\s*EXPO_PUBLIC_API_URL\s*=\s*', '').Trim().Trim('"').Trim("'")
+    try {
+        $uri = [Uri] $apiUrl
+        if (-not $uri.IsAbsoluteUri -or $uri.Scheme -ne "https" -or $uri.Host -like "*.example") {
+            throw "invalid public URL"
+        }
+    } catch {
+        throw "EXPO_PUBLIC_API_URL must be a real public HTTPS URL; a physical phone cannot reach localhost."
+    }
+}
+
+function Start-MobileApplication {
+    # Expo's ngrok tunnel is often blocked or slow on local networks. LAN is
+    # faster and reliable for a phone connected to the same Wi-Fi network.
+    # The local Expo native-module cache can be held by Windows/antivirus;
+    # bypass it so that a locked cache entry never stops the full stack.
+    $commandLine = 'set "EXPO_NO_CACHE=1" && npm.cmd run start -- --lan --port 19000'
+    return Start-ManagedProcess "mobile-app" $script:MobileDirectory $commandLine -Visible
 }
 
 function Show-RecentServiceLogs {
@@ -397,6 +445,29 @@ function Wait-ServiceReady {
     throw "$Name did not become ready within $TimeoutSeconds seconds"
 }
 
+function Wait-PortReady {
+    param(
+        [string] $Name,
+        [int] $Port,
+        [int] $TimeoutSeconds = 90
+    )
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        if ($null -eq (Get-ManagedProcess $Name)) {
+            Show-RecentServiceLogs $Name
+            throw "$Name exited before opening port $Port"
+        }
+        if (Test-PortListening $Port) {
+            Write-DevLog $Name ("Ready and listening at port {0}." -f $Port) (Get-ServiceColor $Name)
+            return
+        }
+        Start-Sleep -Seconds 1
+    }
+    Show-RecentServiceLogs $Name
+    throw "$Name did not open port $Port within $TimeoutSeconds seconds"
+}
+
 function Stop-ManagedProcess {
     param([string] $Name)
 
@@ -420,7 +491,7 @@ function Stop-ManagedProcess {
 }
 
 function Stop-ManagedProcesses {
-    foreach ($name in @("web-app", "api-gateway", "events-service", "media-service", "places-service", "notification-service", "dating-service", "identity-service")) {
+    foreach ($name in @("mobile-app", "web-app", "api-gateway", "events-service", "media-service", "places-service", "notification-service", "dating-service", "identity-service")) {
         Stop-ManagedProcess $name
     }
 }
@@ -444,11 +515,32 @@ function Install-FrontendDependenciesIfMissing {
     }
 }
 
+function Install-MobileDependenciesIfMissing {
+    $expoPackage = Join-Path $script:MobileDirectory "node_modules\expo\package.json"
+    if (Test-Path -LiteralPath $expoPackage) {
+        Write-DevLog "mobile-app" "Expo dependencies exist; npm ci skipped." "DarkGreen"
+        return
+    }
+
+    Write-DevLog "mobile-app" "Expo dependencies are absent or incomplete; running npm ci." "DarkYellow"
+    Push-Location $script:MobileDirectory
+    try {
+        & cmd.exe /d /s /c "npm.cmd ci"
+        if ($LASTEXITCODE -ne 0) {
+            throw "mobile-app npm ci failed with exit code $LASTEXITCODE"
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
 function Start-HybridMode {
     Import-LocalEnvironment
     Assert-HostPrerequisites
     Assert-NoManagedProcesses
     Assert-ApplicationPortsFree
+    Assert-MobileEnvironment
+    Install-MobileDependenciesIfMissing
     Ensure-RunDirectories
     if (Test-Path -LiteralPath $script:StopSignal) {
         Remove-Item -LiteralPath $script:StopSignal -Force
@@ -486,8 +578,12 @@ function Start-HybridMode {
         [void] (Start-WebApplication)
         Wait-ServiceReady "web-app" 5173 60 "/"
 
+        [void] (Start-MobileApplication)
+        Wait-PortReady "mobile-app" $script:MobileExpoPort 90
+
         Write-DevLog "owoke" "All applications are ready." "Green"
         Write-DevLog "owoke" "Website: http://localhost:5173 (also try http://127.0.0.1:5173)" "Green"
+        Write-DevLog "owoke" "Mobile: connect the phone to this PC's Wi-Fi, then scan the Expo QR code in the separate terminal window." "Green"
         Write-DevLog "owoke" "Mailpit: http://localhost:8025" "Green"
         Write-DevLog "owoke" "Press Ctrl+C to stop Java/Node processes; infrastructure stays warm." "Green"
 
@@ -528,6 +624,8 @@ function Start-FullDockerMode {
     Assert-DockerReady
     Assert-NoManagedProcesses
     Assert-ApplicationPortsFree
+    Assert-MobileEnvironment
+    Install-MobileDependenciesIfMissing
     Ensure-RunDirectories
     if (Test-Path -LiteralPath $script:StopSignal) {
         Remove-Item -LiteralPath $script:StopSignal -Force
@@ -541,7 +639,15 @@ function Start-FullDockerMode {
         Show-FailedComposeLogs -Full
         throw
     }
+    [void] (Start-MobileApplication)
+    try {
+        Wait-PortReady "mobile-app" $script:MobileExpoPort 90
+    } catch {
+        Stop-ManagedProcess "mobile-app"
+        throw
+    }
     Write-DevLog "owoke" "Containerized Owoke is ready at http://localhost:5173" "Green"
+    Write-DevLog "owoke" "Mobile: connect the phone to this PC's Wi-Fi, then scan the Expo QR code in the separate terminal window." "Green"
     Write-DevLog "owoke" "Use '.\dev.cmd logs -Follow' or '.\dev.cmd down'." "Green"
 }
 
@@ -672,7 +778,7 @@ function Show-Help {
     Write-Host @"
 Owoke development launcher
 
-  .\dev.cmd up               Infrastructure in Docker; Java and Vite locally.
+  .\dev.cmd up               Infrastructure in Docker; Java, Vite and Expo (LAN) locally.
   .\dev.cmd docker           Fully containerized local stack.
   .\dev.cmd down             Stop processes and containers, preserve volumes.
   .\dev.cmd restart          Restart hybrid mode.
@@ -682,6 +788,7 @@ Owoke development launcher
   .\dev.cmd help             Show this help.
 
 Copy .env.local.example to .env.local before enabling Telegram, OIDC, KudaGo or 2GIS.
+Set mobile-app/.env.local EXPO_PUBLIC_API_URL to the public HTTPS gateway before using Expo Go on a phone.
 "@
 }
 

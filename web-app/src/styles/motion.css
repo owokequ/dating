@@ -109,6 +109,8 @@
   }
 
   .mobile-more-panel { transform-origin: right bottom; animation: menu-arrive 220ms var(--ease) both; }
+  .onboarding-card { animation: card-arrive 520ms var(--ease) both; }
+  .onboarding-orbit { animation: seal-float 4.8s ease-in-out infinite; }
 }
 
 @keyframes header-arrive {

@@ -52,11 +52,11 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         }
 
         return switch (request.getRequestURI()) {
-            case "/api/v1/auth/login" -> new Limit("login", properties.loginAttempts());
+            case "/api/v1/auth/login", "/api/v1/auth/mobile/login" -> new Limit("login", properties.loginAttempts());
             case "/api/v1/auth/register" -> new Limit("register", properties.registrationAttempts());
             case "/api/v1/auth/password-reset/request" ->
                     new Limit("password-reset", properties.passwordResetAttempts());
-            case "/api/v1/auth/refresh" -> new Limit("refresh", properties.refreshAttempts());
+            case "/api/v1/auth/refresh", "/api/v1/auth/mobile/refresh" -> new Limit("refresh", properties.refreshAttempts());
             default -> null;
         };
     }

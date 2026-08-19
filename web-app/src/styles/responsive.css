@@ -92,6 +92,7 @@
   .step-number { width: 40px; height: 40px; }
   dl > div { grid-template-columns: 1fr; gap: .25rem; }
   .auth-links { flex-direction: column; }
+  .onboarding-card { border-radius: 25px 25px 25px 9px; }
   .occurrence-row { align-items: stretch; flex-direction: column; }
   .occurrence-row > div { min-width: 0; }
   .occurrence-row .button { width: 100%; }

@@ -92,10 +92,25 @@ blockquote { margin: 1.5rem 0; padding: .5rem 0 .5rem 1.2rem; border-left: 3px s
 dl > div { padding: .85rem 0; display: grid; grid-template-columns: 150px 1fr; border-top: 1px solid var(--line); }
 dt { color: var(--muted); } dd { margin: 0; }
 .member-grid, .settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
-.onboarding-overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 1rem; background: rgba(61, 32, 42, .52); }
-.onboarding-card { width: min(440px, 100%); padding: 2rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--milk); box-shadow: var(--shadow); text-align: center; }
-.onboarding-card h2 { margin: .35rem 0 .7rem; }
-.onboarding-card p { margin-bottom: 1.4rem; }
+.onboarding-overlay { position: fixed; z-index: 60; inset: 0; padding: 1rem; display: grid; place-items: center; background: rgba(30, 16, 24, .58); backdrop-filter: blur(8px); }
+.onboarding-card { position: relative; width: min(480px, 100%); padding: clamp(1.65rem, 5vw, 2.6rem); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 30px 30px 30px 12px; background: var(--surface-translucent); box-shadow: var(--shadow-lift); text-align: center; }
+.onboarding-card::before { content: ''; position: absolute; top: -6rem; right: -5rem; width: 13rem; height: 13rem; border-radius: 50%; background: radial-gradient(circle, rgba(242, 120, 154, .26), transparent 68%); pointer-events: none; }
+.onboarding-card > * { position: relative; z-index: 1; }
+.onboarding-close { position: absolute; top: .85rem; right: .85rem; width: 38px; height: 38px; min-height: 0; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--muted); box-shadow: none; }
+.onboarding-close:hover { background: var(--rose-mist); color: var(--cherry); box-shadow: none; transform: none; }
+.onboarding-orbit { width: 44px; height: 44px; margin: 0 auto .8rem; display: grid; place-items: center; border-radius: 50%; background: var(--rose-mist); color: var(--cherry); }
+.onboarding-kicker { color: var(--cherry); font-size: .66rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+.onboarding-progress { margin: 1rem auto 1.4rem; display: flex; width: min(172px, 100%); gap: .42rem; }
+.onboarding-progress span { height: 5px; flex: 1; display: grid; place-items: center; border-radius: 999px; background: var(--rose-mist); color: var(--cherry-deep); }
+.onboarding-progress span.complete { background: var(--petal); }
+.onboarding-step-icon { width: 58px; height: 58px; margin: 0 auto 1rem; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 20px 20px 20px 7px; color: var(--cherry); }
+.onboarding-card h2 { margin: 0 0 .75rem; font-size: clamp(2rem, 8vw, 2.85rem); }
+.onboarding-card > p { margin-bottom: 1.3rem; color: var(--muted); }
+.onboarding-note { margin: -.25rem 0 1.3rem; padding: .75rem; display: flex; align-items: flex-start; gap: .45rem; border-radius: var(--radius-sm); background: var(--rose-mist); color: var(--cherry-deep) !important; font-size: .78rem; line-height: 1.5; text-align: left; }
+.onboarding-note svg { flex: 0 0 auto; margin-top: .05rem; }
+.onboarding-card .button { width: 100%; }
+.onboarding-dismiss { min-height: 38px; margin-top: .55rem; padding: .45rem .7rem; background: transparent; color: var(--muted); box-shadow: none; font-size: .8rem; }
+.onboarding-dismiss:hover { background: transparent; color: var(--cherry); box-shadow: none; transform: none; }
 .member-card { padding: 1.2rem; display: grid; gap: .5rem; border: 1px solid var(--line); border-radius: 20px 20px 20px 7px; background: var(--blush); }
 .member-card strong { overflow-wrap: anywhere; }
 .empty-state-icon { margin-bottom: .8rem; color: var(--cherry); }

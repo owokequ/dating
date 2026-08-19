@@ -56,6 +56,43 @@ public class DeliveryService {
     }
 
     @Transactional
+    public void markPushAccepted(DeliveryTask task, String ticketId) {
+        deliveryRepository.findById(task.attemptId())
+                .orElseThrow(() -> new IllegalStateException("Delivery attempt disappeared"))
+                .markWaitingForReceipt(ticketId, clock.instant());
+    }
+
+    @Transactional
+    public List<DeliveryAttempt> claimPushReceipts() {
+        return deliveryRepository.lockReceipts(clock.instant(), PageRequest.of(0, 100));
+    }
+
+    @Transactional
+    public void markPushDelivered(java.util.UUID attemptId) {
+        deliveryRepository.findById(attemptId).orElseThrow().markDelivered(clock.instant());
+    }
+
+    @Transactional
+    public void markPushReceiptFailed(java.util.UUID attemptId, Exception exception) {
+        deliveryRepository.findById(attemptId).orElseThrow().markFailed(exception, clock.instant());
+    }
+
+    @Transactional
+    public void markPushDeviceDisabled(DeliveryTask task, String error) {
+        deliveryRepository.findById(task.attemptId()).orElseThrow().markDisabled(error, clock.instant());
+    }
+
+    @Transactional
+    public void markPushDeviceDisabled(java.util.UUID attemptId, String error) {
+        deliveryRepository.findById(attemptId).orElseThrow().markDisabled(error, clock.instant());
+    }
+
+    @Transactional
+    public void markPushPermanentlyFailed(DeliveryTask task, String error) {
+        deliveryRepository.findById(task.attemptId()).orElseThrow().markPermanentlyFailed(error, clock.instant());
+    }
+
+    @Transactional
     public void markFailed(DeliveryTask task, Exception exception) {
         DeliveryAttempt attempt = deliveryRepository.findById(task.attemptId())
                 .orElseThrow(() -> new IllegalStateException("Delivery attempt disappeared"));
@@ -82,7 +119,8 @@ public class DeliveryService {
                 notification.getType(),
                 notification.getReferenceId(),
                 notification.getContextId(),
-                notification.getMediaId());
+                notification.getMediaId(),
+                attempt.getDestination());
     }
 
     private void createEmailFallback(java.util.UUID notificationId) {

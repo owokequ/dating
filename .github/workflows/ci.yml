@@ -39,6 +39,24 @@ jobs:
       - run: npm run build
       - run: npm audit --audit-level=high
 
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile-app/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx expo config --type public --json > /dev/null
+
   contracts-and-compose:
     runs-on: ubuntu-latest
     env:
@@ -63,6 +81,7 @@ jobs:
       TELEGRAM_WEBHOOK_SECRET: ci-placeholder
       TELEGRAM_OIDC_CLIENT_ID: ci-placeholder
       TELEGRAM_OIDC_CLIENT_SECRET: ci-placeholder
+      EXPO_PUSH_ACCESS_TOKEN: ci-placeholder
       MAIL_HOST: smtp.example.com
       MAIL_USERNAME: ci
       MAIL_PASSWORD: ci-password
@@ -79,7 +98,7 @@ jobs:
           docker compose -f infra/compose.prod.yaml config --quiet
 
   docker-images:
-    needs: [backend, frontend, contracts-and-compose]
+    needs: [backend, frontend, mobile, contracts-and-compose]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

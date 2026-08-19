@@ -16,5 +16,6 @@ public record DeliveryTask(
         String notificationType,
         UUID referenceId,
         UUID contextId,
-        UUID mediaId) {
+        UUID mediaId,
+        String destination) {
 }

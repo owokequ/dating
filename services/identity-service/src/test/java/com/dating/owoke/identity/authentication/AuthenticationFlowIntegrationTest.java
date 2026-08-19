@@ -147,6 +147,38 @@ class AuthenticationFlowIntegrationTest {
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(post("/api/v1/auth/refresh").cookie(rotatedRefresh))
                 .andExpect(status().isUnauthorized());
+
+        MvcResult mobileLogin = mockMvc.perform(post("/api/v1/auth/mobile/login")
+                        .contentType("application/json")
+                        .content(loginJson("alice@example.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.accessTokenExpiresAt").isNotEmpty())
+                .andReturn();
+        String mobileRefreshToken = objectMapper.readTree(mobileLogin.getResponse().getContentAsString())
+                .get("refreshToken")
+                .asText();
+
+        MvcResult mobileRefresh = mockMvc.perform(post("/api/v1/auth/mobile/refresh")
+                        .contentType("application/json")
+                        .content("{\"refreshToken\":\"" + mobileRefreshToken + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String rotatedMobileRefreshToken = objectMapper.readTree(mobileRefresh.getResponse().getContentAsString())
+                .get("refreshToken")
+                .asText();
+        assertThat(rotatedMobileRefreshToken).isNotEqualTo(mobileRefreshToken);
+
+        mockMvc.perform(post("/api/v1/auth/mobile/logout")
+                        .contentType("application/json")
+                        .content("{\"refreshToken\":\"" + rotatedMobileRefreshToken + "\"}"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/v1/auth/mobile/refresh")
+                        .contentType("application/json")
+                        .content("{\"refreshToken\":\"" + rotatedMobileRefreshToken + "\"}"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

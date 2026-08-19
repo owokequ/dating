@@ -62,6 +62,10 @@ owoke:
     from-email: ${NOTIFICATION_FROM_EMAIL:noreply@owoke.local}
     media-service-url: ${MEDIA_SERVICE_URL:http://localhost:8085}
     delivery-fixed-delay: ${NOTIFICATION_DELIVERY_FIXED_DELAY:1000}
+  expo-push:
+    enabled: ${EXPO_PUSH_ENABLED:false}
+    base-url: ${EXPO_PUSH_BASE_URL:https://exp.host}
+    access-token: ${EXPO_PUSH_ACCESS_TOKEN:}
   site-availability:
     enabled: ${SITE_AVAILABILITY_ENABLED:false}
     webhook-secret: ${SITE_AVAILABILITY_WEBHOOK_SECRET:}

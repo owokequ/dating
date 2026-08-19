@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.dating.owoke.identity.authentication.dto.AccountTokenRequest;
 import com.dating.owoke.identity.authentication.dto.LoginRequest;
+import com.dating.owoke.identity.authentication.dto.MobileRefreshTokenRequest;
+import com.dating.owoke.identity.authentication.dto.MobileSessionResponse;
 import com.dating.owoke.identity.authentication.dto.PasswordResetConfirmRequest;
 import com.dating.owoke.identity.authentication.dto.PasswordResetRequest;
 import com.dating.owoke.identity.authentication.dto.RegisterRequest;
@@ -71,6 +73,22 @@ public class AuthenticationController {
             @CookieValue(name = AuthenticationCookieService.REFRESH_COOKIE, required = false) String refreshToken) {
         authenticationService.logout(refreshToken);
         return withCookies(HttpStatus.NO_CONTENT, cookieService.clearCookies());
+    }
+
+    @PostMapping("/mobile/login")
+    public MobileSessionResponse mobileLogin(@Valid @RequestBody LoginRequest request) {
+        return MobileSessionResponse.from(authenticationService.login(request.email(), request.password()));
+    }
+
+    @PostMapping("/mobile/refresh")
+    public MobileSessionResponse mobileRefresh(@Valid @RequestBody MobileRefreshTokenRequest request) {
+        return MobileSessionResponse.from(authenticationService.refresh(request.refreshToken()));
+    }
+
+    @PostMapping("/mobile/logout")
+    public ResponseEntity<Void> mobileLogout(@Valid @RequestBody MobileRefreshTokenRequest request) {
+        authenticationService.logout(request.refreshToken());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/password-reset/request")

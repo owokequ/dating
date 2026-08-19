@@ -29,6 +29,9 @@ public class DeliveryAttempt {
     @Column(nullable = false, updatable = false, length = 16)
     private DeliveryChannel channel;
 
+    @Column(nullable = false, updatable = false, length = 512)
+    private String destination;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private DeliveryStatus status;
@@ -59,9 +62,14 @@ public class DeliveryAttempt {
     }
 
     public DeliveryAttempt(UUID notificationId, DeliveryChannel channel, Instant now) {
+        this(notificationId, channel, "legacy", now);
+    }
+
+    public DeliveryAttempt(UUID notificationId, DeliveryChannel channel, String destination, Instant now) {
         this.id = UUID.randomUUID();
         this.notificationId = Objects.requireNonNull(notificationId, "notificationId must not be null");
         this.channel = Objects.requireNonNull(channel, "channel must not be null");
+        this.destination = Objects.requireNonNull(destination, "destination must not be null");
         this.status = DeliveryStatus.PENDING;
         this.nextAttemptAt = Objects.requireNonNull(now, "now must not be null");
         this.createdAt = now;
@@ -73,6 +81,33 @@ public class DeliveryAttempt {
         this.providerMessageId = providerMessageId;
         completedAt = now;
         lastError = null;
+    }
+
+    public void markWaitingForReceipt(String ticketId, Instant now) {
+        attemptCount++;
+        status = DeliveryStatus.WAITING_RECEIPT;
+        providerMessageId = ticketId;
+        nextAttemptAt = now.plus(Duration.ofMinutes(15));
+        lastError = null;
+    }
+
+    public void markDelivered(Instant now) {
+        status = DeliveryStatus.DELIVERED;
+        completedAt = now;
+        lastError = null;
+    }
+
+    public void markDisabled(String error, Instant now) {
+        status = DeliveryStatus.DISABLED;
+        completedAt = now;
+        lastError = truncate(error);
+    }
+
+    public void markPermanentlyFailed(String error, Instant now) {
+        attemptCount++;
+        status = DeliveryStatus.FAILED;
+        completedAt = now;
+        lastError = truncate(error);
     }
 
     public void markFailed(Exception exception, Instant now) {
@@ -106,6 +141,10 @@ public class DeliveryAttempt {
     public DeliveryChannel getChannel() {
         return channel;
     }
+
+    public String getDestination() { return destination; }
+
+    public String getProviderMessageId() { return providerMessageId; }
 
     public boolean isFailedPermanently() {
         return status == DeliveryStatus.FAILED;

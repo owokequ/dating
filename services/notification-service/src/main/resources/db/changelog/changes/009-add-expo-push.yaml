@@ -1,0 +1,32 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-add-expo-push
+      author: codex
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              ALTER TABLE notification_preferences ADD COLUMN push_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+              CREATE TABLE mobile_devices (
+                  id UUID PRIMARY KEY,
+                  user_id UUID NOT NULL REFERENCES contact_projections(user_id),
+                  expo_push_token VARCHAR(512) NOT NULL UNIQUE,
+                  platform VARCHAR(16) NOT NULL,
+                  active BOOLEAN NOT NULL DEFAULT TRUE,
+                  created_at TIMESTAMPTZ NOT NULL,
+                  updated_at TIMESTAMPTZ NOT NULL,
+                  last_seen_at TIMESTAMPTZ NOT NULL,
+                  version BIGINT NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_mobile_device_platform CHECK (platform IN ('IOS', 'ANDROID'))
+              );
+              CREATE INDEX idx_mobile_devices_user_active ON mobile_devices(user_id, active);
+              ALTER TABLE delivery_attempts ADD COLUMN destination VARCHAR(512) NOT NULL DEFAULT 'legacy';
+              ALTER TABLE delivery_attempts DROP CONSTRAINT uk_delivery_notification_channel;
+              ALTER TABLE delivery_attempts ADD CONSTRAINT uk_delivery_notification_channel_destination
+                  UNIQUE (notification_id, channel, destination);
+              ALTER TABLE delivery_attempts DROP CONSTRAINT ck_delivery_channel;
+              ALTER TABLE delivery_attempts ADD CONSTRAINT ck_delivery_channel
+                  CHECK (channel IN ('TELEGRAM', 'EMAIL', 'PUSH'));
+              ALTER TABLE delivery_attempts DROP CONSTRAINT ck_delivery_status;
+              ALTER TABLE delivery_attempts ADD CONSTRAINT ck_delivery_status
+                  CHECK (status IN ('PENDING', 'PROCESSING', 'WAITING_RECEIPT', 'SENT', 'DELIVERED', 'DISABLED', 'FAILED'));

@@ -1,8 +1,96 @@
 # Owoke
 
-Owoke is a production-oriented dating planner built as a Java 21 / Spring Boot 4.1
-microservice system with a React web client. It is a regular website, not a
-Telegram Mini App. Telegram is used for optional OIDC login and notifications.
+[![CI](https://github.com/owokequ/dating/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/owokequ/dating/actions/workflows/ci.yml)
+[![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
+[![Spring%20Boot-4.1](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![React-19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)](https://react.dev/)
+
+**Owoke** is a production-oriented dating planner: users form a couple, discover
+local places and events, propose a date and coordinate the decision in the web
+application or Telegram. It is a regular website, not a Telegram Mini App;
+Telegram provides optional OIDC login and notifications.
+
+The project is deliberately designed around the problems that a CRUD demo usually
+skips: secure browser sessions, reliable asynchronous delivery, independent data
+ownership, idempotent commands, observable deployment and recovery from partial
+failure.
+
+## Why this project is interesting
+
+- **Reliable event-driven flow.** Seven independently deployable Spring Boot
+  services publish versioned Kafka contracts. Transactional outbox, consumer
+  inbox and retry/DLT handling make duplicate delivery and temporary failures
+  explicit design cases rather than happy-path assumptions.
+- **Security as an end-to-end boundary.** Identity signs RS256 JWTs and exposes
+  JWKS; the Gateway validates issuer and audience, uses HttpOnly token cookies,
+  CSRF double-submit protection, narrow CORS and Redis-backed authentication
+  rate limiting. The browser never receives an access or refresh token.
+- **Data integrity under retries.** Date-changing endpoints require an
+  `Idempotency-Key`; the Dating Service persists the request fingerprint and
+  rejects key reuse with different input.
+- **Production-like operations.** Compose provisions isolated PostgreSQL
+  databases, Redis, Kafka and Mailpit locally. The production stack adds Caddy
+  TLS, health/readiness probes, Prometheus/Grafana and a Cloudflare Worker that
+  monitors availability outside the application host.
+- **Quality gates that run on every change.** CI verifies Java tests,
+  Liquibase/architecture rules, frontend lint/typecheck/tests/build, JSON event
+  contracts, Compose rendering and every Docker image.
+
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+    Browser["React 19 web client"] -->|"HTTPS, HttpOnly cookies + XSRF"| Gateway["API Gateway"]
+    Telegram["Telegram OIDC / bot"] --> Gateway
+
+    Gateway --> Identity["Identity\naccounts & RS256 JWT"]
+    Gateway --> Dating["Dating\ncouples & date proposals"]
+    Gateway --> Places["Places\nlocal catalog"]
+    Gateway --> Events["Events\nKudaGo catalog"]
+    Gateway --> Media["Media\nS3 metadata"]
+    Gateway --> Notifications["Notifications\nin-app, email, Telegram"]
+
+    Identity <-->|"versioned events"| Kafka["Kafka"]
+    Dating <-->|"versioned events"| Kafka
+    Places <-->|"versioned events"| Kafka
+    Events <-->|"versioned events"| Kafka
+    Media <-->|"versioned events"| Kafka
+    Notifications <-->|"versioned events"| Kafka
+
+    Identity --- IdentityDb[("PostgreSQL")]
+    Dating --- DatingDb[("PostgreSQL")]
+    Places --- PlacesDb[("PostgreSQL")]
+    Events --- EventsDb[("PostgreSQL")]
+    Media --- MediaDb[("PostgreSQL")]
+    Notifications --- NotificationsDb[("PostgreSQL")]
+```
+
+Each service owns its schema and never reads another service's tables. Cross-service
+facts are transported through [versioned JSON Schemas](contracts/events), while
+each service keeps only the projections it needs.
+
+## Recruiter / reviewer quick path
+
+```powershell
+copy .env.local.example .env.local
+.\dev.cmd docker
+```
+
+Open `http://localhost:5173`. This starts the full system in containers and waits
+for readiness checks. For a code-first review, start with:
+
+1. [Gateway security configuration](services/api-gateway/src/main/java/com/dating/owoke/gateway/security/configuration/GatewaySecurityConfiguration.java)
+   — cookie-to-bearer resolution, CSRF, JWT validation, CORS and rate limiting.
+2. [Date proposal workflow](services/dating-service/src/main/java/com/dating/owoke/dating/dateproposal/service/DateProposalService.java)
+   — authorization, state transitions, idempotency and transactional events.
+3. [Event contracts](contracts/events) and any service's `OutboxDispatcher` /
+   inbox listener — delivery semantics at asynchronous boundaries.
+4. [CI workflow](.github/workflows/ci.yml) and
+   [production Compose stack](infra/compose.prod.yaml) — reproducible quality
+   checks and operational concerns.
+
+For a concise technical walkthrough and truthful resume bullets, see
+[docs/portfolio.md](docs/portfolio.md).
 
 ## Services
 
@@ -16,15 +104,16 @@ Telegram Mini App. Telegram is used for optional OIDC login and notifications.
 | `services/media-service` | 8085 | Uploaded and provider image metadata |
 | `services/events-service` | 8086 | KudaGo events, occurrences and moderation |
 
-Services own separate PostgreSQL databases and never read each other's tables.
-Cross-service facts are propagated through versioned Kafka events. Kafka is not
-used between controller, service and repository layers inside one application.
+Kafka is deliberately not used between controller, service and repository layers
+inside one application: synchronous business logic remains local, while
+cross-service facts are propagated asynchronously.
 
 ## Requirements
 
 - JDK 21 (the project also compiles on the installed JDK 25)
 - Docker Desktop
-- Node.js 22+ for the web client
+- Node.js 22+ for the web and mobile clients
+- Expo/EAS account only for native Android builds and push delivery
 
 ## Local infrastructure
 
@@ -50,6 +139,15 @@ infrastructure warm for a faster next start.
 
 `down` stops both launcher processes and Owoke containers but deliberately
 preserves containers and named volumes. It never uses `down -v`.
+
+## Mobile app
+
+`mobile-app` is an Expo application and is intentionally not included in Docker
+Compose. Set its `EXPO_PUBLIC_API_URL` to the public HTTPS gateway, run `npm ci`
+and `npm start` in that directory. CI validates its dependencies, lint, types,
+unit tests and Expo configuration. See [mobile-app/README.md](mobile-app/README.md)
+for EAS Android builds, FCM V1, Expo Push, native deep links and the required
+Android App Links certificate fingerprint.
 On `up`, Compose may remove obsolete orphan containers left by renamed services;
 their named volumes are still preserved.
 

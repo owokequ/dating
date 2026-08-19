@@ -19,11 +19,13 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import com.dating.owoke.notification.shared.configuration.NotificationProperties;
 import com.dating.owoke.notification.availability.configuration.SiteAvailabilityProperties;
+import com.dating.owoke.notification.push.configuration.ExpoPushProperties;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
         NotificationSecurityProperties.class,
         NotificationProperties.class,
+        ExpoPushProperties.class,
         SiteAvailabilityProperties.class
 })
 public class NotificationSecurityConfiguration {

@@ -9,6 +9,7 @@ target/
 **/target/
 *.log
 node_modules/
+.npm-cache-mobile/
 .wrangler/
 dist/
 coverage/

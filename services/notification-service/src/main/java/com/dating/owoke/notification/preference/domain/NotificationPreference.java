@@ -27,6 +27,9 @@ public class NotificationPreference {
     @Column(name = "email_enabled", nullable = false)
     private boolean emailEnabled;
 
+    @Column(name = "push_enabled", nullable = false)
+    private boolean pushEnabled;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
@@ -42,6 +45,7 @@ public class NotificationPreference {
         this.inAppEnabled = true;
         this.telegramEnabled = true;
         this.emailEnabled = true;
+        this.pushEnabled = true;
         this.updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
 
@@ -49,8 +53,17 @@ public class NotificationPreference {
         return telegramEnabled;
     }
 
+    public boolean isInAppEnabled() { return inAppEnabled; }
+
     public boolean isEmailEnabled() {
         return emailEnabled;
+    }
+
+    public boolean isPushEnabled() { return pushEnabled; }
+
+    public void update(boolean inApp, boolean push, boolean telegram, boolean email, Instant now) {
+        inAppEnabled = inApp; pushEnabled = push; telegramEnabled = telegram; emailEnabled = email;
+        updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
 
     public void disableTelegram(Instant now) {
