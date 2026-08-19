@@ -10,6 +10,7 @@ target/
 *.log
 node_modules/
 .npm-cache-mobile/
+**/.npm-cache/
 .wrangler/
 dist/
 coverage/
