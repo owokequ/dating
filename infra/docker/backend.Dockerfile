@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:24-jdk AS build
 
 ARG MODULE
 WORKDIR /workspace
@@ -7,7 +7,7 @@ COPY mvnw pom.xml ./
 COPY services/ services/
 RUN chmod +x mvnw && ./mvnw -pl services/${MODULE} -am -DskipTests package
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:24-jre
 
 ARG MODULE
 RUN apt-get update \
